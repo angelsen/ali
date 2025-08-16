@@ -5,25 +5,42 @@ Your command interpreter that speaks every tool's language. Write intuitive comm
 ## Features
 
 - **Simple Commands**: `CREATE PANE LEFT`, `DELETE .1`, `LIST WINDOWS`
-- **Plugin Architecture**: Extend TAL with YAML configs - no coding required
+- **Plugin Architecture**: Extend ALI with YAML configs - no coding required
 - **Smart Expansions**: Automatically transforms commands to correct CLI arguments
 - **Validation**: Clear error messages when commands are invalid
 
 ## Installation
 
 ```bash
-uv add pyyaml
 uv tool install .
 ```
 
-## Usage
+### Tmux Integration
+
+Add to your `~/.tmux.conf`:
 
 ```bash
-# CLI mode
+# ALI - Action Language Interpreter
+# Press C-b a to open ALI command prompt
+bind-key a command-prompt -p "ALI> " \
+  "run-shell 'TMUX_PANE=#{pane_id} ali \"%%\"'"
+```
+
+Then reload tmux config: `tmux source-file ~/.tmux.conf`
+
+## Usage
+
+### CLI Mode
+```bash
+# Basic commands
 ali "CREATE PANE LEFT"
-ali "DELETE .THIS"
+ali "KILL .THIS"            # KILL is alias for DELETE
 ali "SWAP .1 WITH .2"
-ali "GO :1"
+ali "GO :1"                 # Navigate within session
+ali "SWITCH practical-dog"  # Switch to different session
+
+# Full tmux target support
+ali "GO practical-dog:0.0"  # Go to specific pane in session
 
 # List available commands
 ali --list-verbs
@@ -31,6 +48,13 @@ ali --list-verbs
 # Dry run (see what would execute)
 ali --dry-run "CREATE WINDOW"
 ```
+
+### From Tmux (C-b a)
+After setting up tmux integration, press `C-b a` then type:
+- `CREATE PANE RIGHT` - Split current pane
+- `DELETE .2` - Delete pane 2
+- `GO :1` - Go to window 1
+- `KILL .THIS` - Kill current pane
 
 ## Architecture
 
