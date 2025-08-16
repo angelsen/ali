@@ -3,27 +3,29 @@
 ## Current State
 
 ✅ **Completed:**
-- Plugin architecture (YAML-based)
+- Vocabulary-driven plugin architecture
+- Pure token parser (18 lines)
+- Plugin registration system
+- Router with context-aware routing
+- CLI with --dry-run and --list-verbs
+- Full tmux plugin implementation
 - Expansion engine (argument transformation)
-- Validation system
-- Tmux plugin working in REPL
+- Validation system with clear errors
 
 🚧 **In Progress:**
-- Grammar parser (Lark)
-- CLI entry point
 - Interactive UI (tmux-popup)
 
 ## Next Steps
 
-### 1. Parser & CLI
-- [ ] Basic Lark grammar for commands
-- [ ] CLI entry point that uses plugins
-- [ ] Execute actual tmux commands (not just generate)
+### 1. Interactive UI
+- [ ] tmux-popup integration
+- [ ] Command history
+- [ ] Tab completion using vocabulary
 
-### 2. Context & Routing
-- [ ] Detect tmux/vim/desktop context
-- [ ] Route commands to correct plugin
-- [ ] Pass context from tmux keybinding
+### 2. Tmux Integration
+- [ ] Keybinding setup script
+- [ ] Context passing (TAL_CALLER=tmux-popup)
+- [ ] Execute commands (not just dry-run)
 
 ### 3. Visual Selection (`?`)
 The `?` operator for visual selection - "let me choose visually":
