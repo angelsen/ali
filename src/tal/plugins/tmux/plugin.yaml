@@ -1,0 +1,74 @@
+name: tmux
+version: 1.0
+description: Tmux window manager control
+
+# When this plugin is active
+context:
+  env_required: TMUX
+
+# Validation rules
+validations:
+  allowed_directions:
+    PANE: [left, right, up, down, above, below]
+    COL: [left, right]
+    ROW: [up, down, above, below]
+  
+# Expansion rules for transforming parsed commands
+expansions:
+  direction:  # Name matches what template expects
+    type: map
+    field: direction
+    mappings:
+      PANE:
+        left: "-h -b"
+        right: "-h"
+        up: "-v -b"
+        down: "-v"
+      COL:
+        left: "-h -f -b"
+        right: "-h -f"
+      ROW:
+        up: "-v -f -b"
+        down: "-v -f"
+  
+  target:  # Simple name
+    type: format
+    template: "-t {target}"
+    default: ""
+
+# Command templates
+commands:
+  - match:
+      verb: CREATE
+      object: PANE
+    exec: "tmux split-window {direction} {target}"
+    
+  - match:
+      verb: CREATE
+      object: COL
+    exec: "tmux split-window {direction} {target}"
+    
+  - match:
+      verb: CREATE
+      object: ROW
+    exec: "tmux split-window {direction} {target}"
+    
+  - match:
+      verb: CREATE
+      object: WINDOW
+    exec: "tmux new-window {target}"
+    
+  - match:
+      verb: DELETE
+      object: PANE
+    exec: "tmux kill-pane {target}"
+    
+  - match:
+      verb: LIST
+      object: PANES
+    exec: "tmux list-panes"
+    
+  - match:
+      verb: LIST
+      object: WINDOWS
+    exec: "tmux list-windows"
