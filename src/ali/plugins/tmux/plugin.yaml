@@ -8,12 +8,22 @@ context:
 vocabulary:
   verbs: [CREATE, DELETE, LIST, GO, SWITCH, SWAP, RENAME]
   verb_aliases:
+    # Full aliases
     KILL: DELETE
     REMOVE: DELETE
     CLOSE: DELETE
     SELECT: GO
     MOVE: GO
     NAVIGATE: GO
+    NEW: CREATE
+    MAKE: CREATE
+    # Shortforms (1-2 chars)
+    N: CREATE # new
+    D: DELETE # delete
+    G: GO # go
+    L: LIST # list
+    S: SWITCH # switch (not SWAP to avoid confusion)
+    R: RENAME # rename
   objects: [PANE, PANES, WINDOW, WINDOWS, SESSION, SESSIONS, ROW, COL]
   directions: [left, right, up, down, above, below]
   clauses: [WITH, FROM, TO]
@@ -133,6 +143,10 @@ expansions:
       ROW:
         up: "-v -f -b"
         down: "-v -f"
+  target_flag:
+    type: format
+    template: "-t {target}"
+    default: ""
 # Command templates
 commands:
   # Visual selector commands
@@ -150,33 +164,33 @@ commands:
     exec: "tmux choose-session"
   # Regular commands
   - match: {verb: CREATE, object: PANE}
-    exec: "tmux split-window {direction} -t {target}"
+    exec: "tmux split-window {direction} {target_flag}"
   - match: {verb: CREATE, object: COL}
-    exec: "tmux split-window {direction} -t {target}"
+    exec: "tmux split-window {direction} {target_flag}"
   - match: {verb: CREATE, object: ROW}
-    exec: "tmux split-window {direction} -t {target}"
+    exec: "tmux split-window {direction} {target_flag}"
   - match: {verb: CREATE, object: WINDOW}
-    exec: "tmux new-window -t {target}"
+    exec: "tmux new-window {target_flag}"
   - match: {verb: DELETE, object: PANE}
-    exec: "tmux kill-pane -t {target}"
+    exec: "tmux kill-pane {target_flag}"
   - match: {verb: DELETE, object: WINDOW}
-    exec: "tmux kill-window -t {target}"
+    exec: "tmux kill-window {target_flag}"
   - match: {verb: DELETE, object: SESSION}
-    exec: "tmux kill-session -t {target}"
+    exec: "tmux kill-session {target_flag}"
   - match: {verb: LIST, object: PANES}
     exec: "tmux list-panes"
   - match: {verb: LIST, object: WINDOWS}
     exec: "tmux list-windows"
   - match: {verb: GO, object: PANE}
-    exec: "tmux select-pane -t {target}"
+    exec: "tmux select-pane {target_flag}"
   - match: {verb: GO, object: WINDOW}
-    exec: "tmux select-window -t {target}"
+    exec: "tmux select-window {target_flag}"
   - match: {verb: SWITCH, object: PANE}
-    exec: "tmux select-pane -t {target}"
+    exec: "tmux select-pane {target_flag}"
   - match: {verb: SWITCH, object: WINDOW}
-    exec: "tmux select-window -t {target}"
+    exec: "tmux select-window {target_flag}"
   - match: {verb: SWITCH, object: SESSION}
-    exec: "tmux switch-client -t {target}"
+    exec: "tmux switch-client {target_flag}"
   - match: {verb: SWAP, object: PANE}
     exec: "tmux swap-pane -s {target} -t {with}"
   - match: {verb: SWAP, object: WINDOW}
