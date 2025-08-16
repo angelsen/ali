@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""TAL CLI - Execute TAL commands from the command line."""
+"""ALI CLI - Execute ALI commands from the command line."""
 
 import sys
 import os
@@ -13,7 +13,7 @@ def capture_context() -> Dict[str, Any]:
     """Capture context from environment."""
     context = {
         "env": dict(os.environ),
-        "caller": os.environ.get("TAL_CALLER", "cli"),
+        "caller": os.environ.get("ALI_CALLER", "cli"),
         "cwd": os.getcwd(),
     }
 
@@ -32,7 +32,7 @@ def find_plugins_dir() -> Path:
         return package_dir
 
     # Look in user config
-    user_plugins = Path.home() / ".config" / "tal" / "plugins"
+    user_plugins = Path.home() / ".config" / "ali" / "plugins"
     if user_plugins.exists():
         return user_plugins
 
@@ -43,15 +43,15 @@ def find_plugins_dir() -> Path:
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="TAL - Tmux Action Language",
+        description="ALI - Action Language Interpreter",
         epilog="Examples:\n"
-        "  tal 'CREATE PANE LEFT'\n"
-        "  tal 'DELETE .THIS'\n"
-        "  tal 'GO :1'\n",
+        "  ali 'CREATE PANE LEFT'\n"
+        "  ali 'DELETE .THIS'\n"
+        "  ali 'GO :1'\n",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    parser.add_argument("command", nargs="?", help="TAL command to execute")
+    parser.add_argument("command", nargs="?", help="ALI command to execute")
 
     parser.add_argument(
         "--list-verbs", action="store_true", help="List all available verbs"

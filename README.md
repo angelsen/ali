@@ -1,6 +1,6 @@
-# TAL - Tmux Action Language
+# ALI - Action Language Interpreter
 
-A plugin-based command language for tmux and other CLI tools. Write intuitive commands like `CREATE PANE LEFT` instead of memorizing complex tmux syntax.
+Your command interpreter that speaks every tool's language. Write intuitive commands like `CREATE PANE LEFT` instead of memorizing complex keybindings.
 
 ## Features
 
@@ -20,21 +20,21 @@ uv tool install .
 
 ```bash
 # CLI mode
-tal "CREATE PANE LEFT"
-tal "DELETE .THIS"
-tal "SWAP .1 WITH .2"
-tal "GO :1"
+ali "CREATE PANE LEFT"
+ali "DELETE .THIS"
+ali "SWAP .1 WITH .2"
+ali "GO :1"
 
 # List available commands
-tal --list-verbs
+ali --list-verbs
 
 # Dry run (see what would execute)
-tal --dry-run "CREATE WINDOW"
+ali --dry-run "CREATE WINDOW"
 ```
 
 ## Architecture
 
-TAL uses a vocabulary-driven plugin system where each tool declares what it understands:
+ALI uses a vocabulary-driven plugin system where each tool declares what it understands:
 
 ```yaml
 # plugins/tmux/plugin.yaml

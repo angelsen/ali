@@ -1,14 +1,14 @@
 [project]
-name = "tal-tool"
+name = "ali"
 version = "0.1.0"
-description = "SQL-like interface for tmux operations"
+description = "Action Language Interpreter - One command for every tool"
 readme = "README.md"
 authors = [{ name = "Fredrik Angelsen", email = "fredrikangelsen@gmail.com" }]
 requires-python = ">=3.12"
 dependencies = ["lark>=1.2.2", "pyyaml>=6.0.2", "tmux-popup>=0.2.0"]
 
 [project.scripts]
-tal = "tal.cli:main"
+ali = "ali.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.8.8,<0.9.0"]

@@ -19,7 +19,7 @@
 - Would refactoring eliminate this issue entirely?
 - Is this edit making the code better or just different?
 
-### The TAL Development Cycle
+### The ALI Development Cycle
 
 ```
 STOP → READ the full file → EVALUATE alternatives → REFACTOR first → THEN Write/Edit

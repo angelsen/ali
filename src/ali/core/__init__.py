@@ -1,4 +1,4 @@
-"""TAL core components."""
+"""ALI core components."""
 
 from .plugin import Plugin, YamlPlugin
 from .expansion import ExpansionEngine

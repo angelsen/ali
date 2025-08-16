@@ -1,4 +1,4 @@
-"""Router for TAL - finds the right plugin for a command based on verb and context."""
+"""Router for ALI - finds the right plugin for a command based on verb and context."""
 
 from typing import List, Dict, Any, Optional
 from pathlib import Path

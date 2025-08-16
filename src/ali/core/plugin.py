@@ -7,7 +7,7 @@ from .expansion import ExpansionEngine
 
 
 class Plugin(Protocol):
-    """Protocol for TAL plugins - minimal interface."""
+    """Protocol for ALI plugins - minimal interface."""
 
     def can_handle(self, verb: str, obj: str) -> bool:
         """Check if this plugin handles the given verb/object combo."""

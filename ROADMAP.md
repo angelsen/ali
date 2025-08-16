@@ -1,4 +1,4 @@
-# TAL Roadmap
+# ALI Roadmap
 
 ## Current State
 
@@ -24,7 +24,7 @@
 
 ### 2. Tmux Integration
 - [ ] Keybinding setup script
-- [ ] Context passing (TAL_CALLER=tmux-popup)
+- [ ] Context passing (ALI_CALLER=tmux-popup)
 - [ ] Execute commands (not just dry-run)
 
 ### 3. Visual Selection (`?`)

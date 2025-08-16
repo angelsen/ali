@@ -1,11 +1,11 @@
-"""Ultra-dumb TAL parser - just tokenizes, plugins interpret everything."""
+"""Ultra-dumb ALI parser - just tokenizes, plugins interpret everything."""
 
 import re
 from typing import Any, Dict, List, Optional
 
 
-class TALParser:
-    """Truly dumb TAL parser - just tokenizes commands."""
+class ALIParser:
+    """Truly dumb ALI parser - just tokenizes commands."""
 
     def __init__(self, context: Optional[Dict[str, Any]] = None):
         """Initialize parser with optional context from environment."""
@@ -63,6 +63,6 @@ class TALParser:
 
 # Convenience function
 def parse(command: str, context: Optional[Dict[str, Any]] = None) -> dict:
-    """Parse a TAL command string."""
-    parser = TALParser(context)
+    """Parse a ALI command string."""
+    parser = ALIParser(context)
     return parser.parse(command)
