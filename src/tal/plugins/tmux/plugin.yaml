@@ -6,12 +6,71 @@ description: Tmux window manager control
 context:
   env_required: TMUX
 
+# Plugin vocabulary - what this plugin understands
+vocabulary:
+  verbs: [CREATE, DELETE, LIST, GO, SWITCH, SWAP, RENAME]
+  objects: [PANE, PANES, WINDOW, WINDOWS, SESSION, SESSIONS, ROW, COL]
+  directions: [left, right, up, down, above, below]
+  clauses: [WITH, FROM, TO]
+  target_patterns:
+    - {regex: "^\\.\\d+$"}      # .1, .2 (pane refs)
+    - {regex: "^:\\d+$"}        # :1, :2 (window refs)
+    - ".THIS"                  # Current pane
+    - ":THIS"                  # Current window  
+    - "THIS"                   # Current session
+    - "CURRENT"                # Alias for current
+    - "?"
+
+# Field aliases - map parser fields to template fields
+field_aliases:
+  from: target    # FROM .2 becomes target: .2
+  to: name        # TO something becomes name: something (for RENAME)
+
+# Field transformations - handle special values
+field_transformations:
+  target:
+    ".THIS": ""      # .THIS → "" (empty = current pane)
+    ":THIS": ""      # :THIS → "" (empty = current window)
+    "THIS": ""       # THIS → "" (empty = current session)
+    "CURRENT": ""    # CURRENT → "" (empty = current)
+
+# Object inference - infer object type from target pattern
+inference:
+  object_from_target:
+    "^\\.\\d+$": PANE          # .1 .2 etc → PANE
+    "^\\.THIS$": PANE          # .THIS → current pane
+    "^:\\d+$": WINDOW          # :1 :2 etc → WINDOW
+    "^:THIS$": WINDOW          # :THIS → current window
+    "^THIS$": SESSION          # THIS → current session
+    "^CURRENT$": SESSION       # CURRENT → current session
+    "^[\\w-]+$": SESSION       # names → SESSION (must be last!)
+
 # Validation rules
 validations:
   allowed_directions:
     PANE: [left, right, up, down, above, below]
     COL: [left, right]
     ROW: [up, down, above, below]
+  
+  # Strict parameter validation - reject unexpected params
+  allowed_params:
+    "CREATE PANE": [direction, target, from]
+    "CREATE WINDOW": [target, from]  # No direction!
+    "CREATE ROW": [direction, target, from]
+    "CREATE COL": [direction, target, from]
+    "DELETE PANE": [target, targets]  # No direction!
+    "DELETE WINDOW": [target, targets]  # No direction!
+    "DELETE SESSION": [target, targets]  # No direction!
+    "LIST PANES": []  # No params allowed
+    "LIST WINDOWS": []  # No params allowed
+    "GO PANE": [target]
+    "GO WINDOW": [target]
+    "SWITCH PANE": [target]
+    "SWITCH WINDOW": [target]
+    "SWAP PANE": [source, target, with]
+    "SWAP WINDOW": [source, target, with]
+    "RENAME WINDOW": [name, target, to]
+    "RENAME SESSION": [name, target, to]
   
 # Expansion rules for transforming parsed commands
 expansions:
@@ -64,6 +123,16 @@ commands:
     exec: "tmux kill-pane {target}"
     
   - match:
+      verb: DELETE
+      object: WINDOW
+    exec: "tmux kill-window {target}"
+    
+  - match:
+      verb: DELETE
+      object: SESSION
+    exec: "tmux kill-session {target}"
+    
+  - match:
       verb: LIST
       object: PANES
     exec: "tmux list-panes"
@@ -72,3 +141,46 @@ commands:
       verb: LIST
       object: WINDOWS
     exec: "tmux list-windows"
+    
+  # Navigation commands - most critical for developers
+  - match:
+      verb: GO
+      object: PANE
+    exec: "tmux select-pane {target}"
+    
+  - match:
+      verb: GO
+      object: WINDOW
+    exec: "tmux select-window {target}"
+    
+  - match:
+      verb: SWITCH
+      object: PANE
+    exec: "tmux select-pane {target}"
+    
+  - match:
+      verb: SWITCH
+      object: WINDOW  
+    exec: "tmux select-window {target}"
+    
+  # Swap commands - rearrange panes/windows
+  - match:
+      verb: SWAP
+      object: PANE
+    exec: "tmux swap-pane -s {source} {target}"
+    
+  - match:
+      verb: SWAP
+      object: WINDOW
+    exec: "tmux swap-window -s {source} {target}"
+    
+  # Rename commands
+  - match:
+      verb: RENAME
+      object: WINDOW
+    exec: "tmux rename-window {name}"
+    
+  - match:
+      verb: RENAME
+      object: SESSION
+    exec: "tmux rename-session {name}"
