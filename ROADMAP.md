@@ -3,14 +3,19 @@
 ## Current State
 
 ✅ **Completed:**
-- Vocabulary-driven plugin architecture
-- Pure token parser (18 lines)
-- Plugin registration system
-- Router with context-aware routing
+- Unified rules engine (parsing, inference, validation, expansion)
+- Ultra-dumb parser using shlex (37 lines, zero domain knowledge)
+- Data-driven token parsing via YAML rules
+- Plugin registration system with verb routing
+- Router with context-aware plugin selection
 - CLI with --dry-run and --list-verbs
 - Full tmux plugin implementation
-- Expansion engine (argument transformation)
-- Validation system with clear errors
+- Smart inference rules (object detection from targets)
+- Visual selectors (.?, :?, ?) with context-aware inference
+- Command aliases (NEW, KILL, etc.) and shortforms (n, d, g, l, s, r)
+- Field transformations and conditional expansions
+- Validation system with helpful error messages
+- Proper handling of empty targets (no empty -t flags)
 
 🚧 **In Progress:**
 - Interactive UI (tmux-popup)
@@ -22,22 +27,24 @@
 - [ ] Command history
 - [ ] Tab completion using vocabulary
 
-### 2. Tmux Integration
+### 2. Tmux Integration Improvements
 - [ ] Keybinding setup script
-- [ ] Context passing (ALI_CALLER=tmux-popup)
-- [ ] Execute commands (not just dry-run)
+- [ ] Better context passing (ALI_CALLER=tmux-popup)
+- [ ] Direct execution mode (not just dry-run)
 
-### 3. Visual Selection (`?`)
-The `?` operator for visual selection - "let me choose visually":
-
+### 3. Enhanced Visual Selection
+✅ **Already Working:**
 ```
-GO ?                    # Shows numbered panes, press to select
-CREATE PANE FROM ?      # Pick which pane to split
-SWAP THIS WITH ?        # Visual swap
-DELETE ?                # Pick what to delete
+GO .?                   # Visual pane selector
+DELETE .?               # Visual delete pane
+GO :?                   # Visual window selector
+SWITCH ?                # Visual session selector
+SWAP . WITH .?          # Visual swap
 ```
 
-Implementation via `tmux display-panes` and prompt capture.
+**Future Enhancements:**
+- [ ] Multi-select support for batch operations
+- [ ] Visual feedback during selection
 
 ### 4. More Plugins
 - [ ] Vim plugin (splits, tabs, buffers)
