@@ -3,7 +3,8 @@
 import re
 import os
 import subprocess
-from typing import List, Optional
+import importlib
+from typing import List, Optional, Dict, Any
 
 
 class RulesEngine:
@@ -218,14 +219,30 @@ class RulesEngine:
         for field, expected in conditions.items():
             actual = state.get(field)
 
+            # Handle special "else" condition (matches anything)
+            if field == "else" and expected is True:
+                continue  # else condition always matches
+
+            # Handle "present" condition (field must exist and not be None)
+            elif expected == "present":
+                if field not in state or state[field] is None:
+                    return False
+
+            # Handle "absent" condition (field must not exist or be None)
+            elif expected == "absent":
+                if field in state and state[field] is not None:
+                    return False
+
             # Handle regex patterns
-            if isinstance(expected, str) and expected.startswith("^"):
+            elif isinstance(expected, str) and expected.startswith("^"):
                 if not actual or not re.match(expected, actual):
                     return False
+
             # Handle None/null checks
             elif expected is None:
                 if actual is not None:
                     return False
+
             # Direct comparison
             else:
                 if actual != expected:
@@ -277,7 +294,9 @@ class RulesEngine:
 
         return None
 
-    def expand_fields(self, state: dict, expansions: dict) -> dict:
+    def expand_fields(
+        self, state: dict, expansions: dict, config: dict | None = None
+    ) -> dict:
         """Expand fields using expansion rules."""
         for field_name, rule in expansions.items():
             rule_type = rule.get("type", "map")
@@ -290,6 +309,8 @@ class RulesEngine:
                 state[field_name] = self._expand_env(rule)
             elif rule_type == "command":
                 state[field_name] = self._expand_command(rule)
+            elif rule_type == "plugin" and config:
+                state[field_name] = self._expand_plugin(state, rule, config)
 
         return state
 
@@ -346,6 +367,27 @@ class RulesEngine:
         except subprocess.SubprocessError:
             return rule.get("default", "")
 
+    def _expand_plugin(
+        self, state: Dict[str, Any], rule: Dict[str, Any], config: Dict[str, Any]
+    ) -> str:
+        """Call plugin-specific expansion function."""
+        plugin_name = config.get("name", "unknown")
+        function_name = rule.get("function")
+
+        if not function_name:
+            return rule.get("default", "")
+
+        try:
+            # Import plugin module
+            module = importlib.import_module(f"ali.plugins.{plugin_name}.plugin")
+            func = getattr(module, function_name)
+            return func(state)
+        except (ImportError, AttributeError) as e:
+            print(
+                f"Warning: Plugin function {plugin_name}.{function_name} not found: {e}"
+            )
+            return rule.get("default", "")
+
     def execute_command(self, state: dict, config: dict) -> str:
         """Match state against commands and execute."""
         commands = config.get("commands", [])
@@ -356,10 +398,31 @@ class RulesEngine:
 
             # Check if all match criteria are met
             if self._matches_conditions(state, match):
+                # Check if this is a plugin command
+                if command.get("type") == "plugin":
+                    function_name = command.get("function")
+                    if function_name:
+                        plugin_name = config.get("name", "unknown")
+                        try:
+                            # Import plugin module
+                            module = importlib.import_module(
+                                f"ali.plugins.{plugin_name}.plugin"
+                            )
+                            func = getattr(module, function_name)
+                            result = func(state)
+                            if result:
+                                return result
+                        except (ImportError, AttributeError) as e:
+                            print(
+                                f"Warning: Plugin function {plugin_name}.{function_name} not found: {e}"
+                            )
+                    continue
+
+                # Regular template-based command
                 template = command.get("exec", "")
 
                 # Apply expansions AFTER matching
-                expanded_state = self.expand_fields(state.copy(), expansions)
+                expanded_state = self.expand_fields(state.copy(), expansions, config)
 
                 # Fill template with expanded state values
                 try:
