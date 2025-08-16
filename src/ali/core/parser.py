@@ -1,6 +1,6 @@
 """Ultra-dumb ALI parser - just tokenizes, plugins interpret everything."""
 
-import re
+import shlex
 from typing import Any, Dict, List, Optional
 
 
@@ -12,33 +12,13 @@ class ALIParser:
         self.context = context or {}
 
     def tokenize(self, command: str) -> List[str]:
-        """Tokenize command string into parts."""
-        # Pattern matches (no domain knowledge):
-        # - Quoted strings (preserve spaces)
-        # - Special single chars (?, @, etc.)
-        # - Identifiers (can contain letters, numbers, dots, colons, hyphens)
-        # - Plain numbers
-        pattern = r"""
-            "[^"]*"|                          # Double quoted string
-            '[^']*'|                          # Single quoted string
-            \?|@|#|!|                         # Special single characters
-            [a-zA-Z_][a-zA-Z0-9_:.\-]*|       # Identifiers (can have : . -)
-            \.[a-zA-Z0-9_]+|                  # Dot-prefixed identifiers
-            :[a-zA-Z0-9_]+|                   # Colon-prefixed identifiers
-            \d+                               # Plain numbers
-        """
-
-        tokens = re.findall(pattern, command, re.VERBOSE | re.IGNORECASE)
-
-        # Strip quotes from quoted strings
-        cleaned = []
-        for token in tokens:
-            if token.startswith(("'", '"')):
-                cleaned.append(token[1:-1])
-            else:
-                cleaned.append(token)
-
-        return cleaned
+        """Tokenize command string into parts using shlex."""
+        try:
+            # Use shlex for proper quote handling
+            return shlex.split(command)
+        except ValueError:
+            # Unclosed quote - fall back to simple split
+            return command.split()
 
     def parse(self, command: str) -> dict:
         """Pure tokenizer - no domain knowledge, just verb + tokens."""

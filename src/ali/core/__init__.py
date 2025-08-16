@@ -1,6 +1,6 @@
 """ALI core components."""
 
-from .plugin import Plugin, YamlPlugin
-from .expansion import ExpansionEngine
+from .plugin import YamlPlugin
+from .rules import RulesEngine
 
-__all__ = ["Plugin", "YamlPlugin", "ExpansionEngine"]
+__all__ = ["YamlPlugin", "RulesEngine"]

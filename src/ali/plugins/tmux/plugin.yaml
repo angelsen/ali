@@ -1,92 +1,124 @@
 name: tmux
-version: 1.0
-description: Tmux window manager control
-
+version: 2.0
+description: Tmux window manager control with smart parsing
 # When this plugin is active
 context:
   env_required: TMUX
-
-# Plugin vocabulary - what this plugin understands
+# Plugin vocabulary
 vocabulary:
   verbs: [CREATE, DELETE, LIST, GO, SWITCH, SWAP, RENAME]
   verb_aliases:
-    KILL: DELETE      # KILL → DELETE (tmux native term)
-    REMOVE: DELETE    # REMOVE → DELETE
-    CLOSE: DELETE     # CLOSE → DELETE
-    SELECT: GO        # SELECT → GO
-    MOVE: GO          # MOVE → GO
-    NAVIGATE: GO      # NAVIGATE → GO
+    KILL: DELETE
+    REMOVE: DELETE
+    CLOSE: DELETE
+    SELECT: GO
+    MOVE: GO
+    NAVIGATE: GO
   objects: [PANE, PANES, WINDOW, WINDOWS, SESSION, SESSIONS, ROW, COL]
   directions: [left, right, up, down, above, below]
   clauses: [WITH, FROM, TO]
   target_patterns:
-    - {regex: "^[\\w-]+:\\d+\\.\\d+$"}  # session:window.pane
-    - {regex: "^[\\w-]+:\\d+$"}        # session:window
-    - {regex: "^\\.\\d+$"}             # .1, .2 (pane refs)
-    - {regex: "^:\\d+$"}               # :1, :2 (window refs)
-    - {regex: "^[\\w-]+$"}             # session names
-    - ".THIS"                          # Current pane
-    - ":THIS"                          # Current window  
-    - "THIS"                           # Current session
-    - "CURRENT"                        # Alias for current
-    - "?"
-
-# Field aliases - map parser fields to template fields
-field_aliases:
-  from: target    # FROM .2 becomes target: .2
-  to: name        # TO something becomes name: something (for RENAME)
-
-# Field transformations - handle special values
-field_transformations:
-  target:
-    ".THIS": ""      # .THIS → "" (empty = current pane)
-    ":THIS": ""      # :THIS → "" (empty = current window)
-    "THIS": ""       # THIS → "" (empty = current session)
-    "CURRENT": ""    # CURRENT → "" (empty = current)
-
-# Object inference - infer object type from target pattern
+    - {regex: "^[\\w-]+:\\d+\\.\\d+$"} # session:window.pane
+    - {regex: "^[\\w-]+:\\d+$"} # session:window
+    - {regex: "^\\.\\d+$"} # .1, .2 (pane refs)
+    - {regex: "^:\\d+$"} # :1, :2 (window refs)
+    - {regex: "^[\\w-]+$"} # session names
+    - "." # Current pane
+    - ":" # Current window
+    - ".THIS" # Current pane (explicit)
+    - ":THIS" # Current window (explicit)
+    - "THIS" # Current session
+    - "CURRENT" # Current session (alias)
+    - ".?" # Visual pane selector
+    - ":?" # Visual window selector
+    - "?" # Visual selector (context-dependent)
+# Token parsing rules
+parsing:
+  token_rules:
+    # Rule 1: First token might be object
+    - match: {position: 0, in_set: objects}
+      action: set
+      field: object
+      transform: upper
+    # Rule 2: Directions
+    - match: {in_set: directions}
+      action: set
+      field: direction
+      transform: lower
+    # Rule 3: Clauses consume next token
+    - match: {in_set: clauses}
+      action: consume_next
+      field: "{token_lower}"
+    # Rule 4: Target patterns
+    - match: {matches_patterns: true}
+      action: set
+      field: target
+    # Rule 5: Everything else goes to args
+    - match: {else: true}
+      action: accumulate
+      field: args
+# Inference rules for smart behavior
 inference:
-  object_from_target:
-    "^[\\w-]+:\\d+\\.\\d+$": PANE      # session:window.pane → PANE
-    "^\\.\\d+$": PANE                  # .1 .2 etc → PANE
-    "^\\.THIS$": PANE                  # .THIS → current pane
-    "^[\\w-]+:\\d+$": WINDOW           # session:window → WINDOW
-    "^:\\d+$": WINDOW                  # :1 :2 etc → WINDOW
-    "^:THIS$": WINDOW                  # :THIS → current window
-    "^THIS$": SESSION                  # THIS → current session
-    "^CURRENT$": SESSION               # CURRENT → current session
-    "^[\\w-]+$": SESSION               # names → SESSION (must be last!)
-
+  rules:
+    # Infer object from target prefix
+    - when: {target: "^\\.", object: null}
+      set: {object: PANE}
+    - when: {target: "^:", object: null}
+      set: {object: WINDOW}
+    - when: {target: "^(THIS|CURRENT)$", object: null}
+      set: {object: SESSION}
+    # Smart visual selector inference
+    - when: {verb: SWAP, target: "^\\.$", with: "^\\?$"}
+      transform: {with: ".?"} # Make visual selector explicit
+    - when: {verb: SWAP, target: "^:$", with: "^\\?$"}
+      transform: {with: ":?"}
+    # Default ? based on verb
+    - when: {verb: GO, target: "^\\?$", object: null}
+      set: {object: PANE}
+      transform: {target: ".?"}
+    - when: {verb: SWITCH, target: "^\\?$", object: null}
+      set: {object: SESSION}
+# Field transformations
+transformations:
+  field_aliases:
+    from: target # FROM .2 becomes target: .2
+    to: name # TO something becomes name: something
+  field_transformations:
+    target:
+      ".": "" # . → "" (current pane)
+      ":": "" # : → "" (current window)
+      ".THIS": "" # .THIS → "" (current pane)
+      ":THIS": "" # :THIS → "" (current window)
+      "THIS": "" # THIS → "" (current session)
+      "CURRENT": "" # CURRENT → "" (current session)
 # Validation rules
-validations:
+validation:
   allowed_directions:
     PANE: [left, right, up, down, above, below]
     COL: [left, right]
     ROW: [up, down, above, below]
-  
-  # Strict parameter validation - reject unexpected params
   allowed_params:
     "CREATE PANE": [direction, target, from]
-    "CREATE WINDOW": [target, from]  # No direction!
+    "CREATE WINDOW": [target, from]
     "CREATE ROW": [direction, target, from]
     "CREATE COL": [direction, target, from]
-    "DELETE PANE": [target, targets]  # No direction!
-    "DELETE WINDOW": [target, targets]  # No direction!
-    "DELETE SESSION": [target, targets]  # No direction!
-    "LIST PANES": []  # No params allowed
-    "LIST WINDOWS": []  # No params allowed
+    "DELETE PANE": [target]
+    "DELETE WINDOW": [target]
+    "DELETE SESSION": [target]
+    "LIST PANES": []
+    "LIST WINDOWS": []
     "GO PANE": [target]
     "GO WINDOW": [target]
     "SWITCH PANE": [target]
     "SWITCH WINDOW": [target]
-    "SWAP PANE": [source, target, with]
-    "SWAP WINDOW": [source, target, with]
+    "SWITCH SESSION": [target]
+    "SWAP PANE": [target, with]
+    "SWAP WINDOW": [target, with]
     "RENAME WINDOW": [name, target, to]
     "RENAME SESSION": [name, target, to]
-  
-# Expansion rules for transforming parsed commands
+# Field expansions for command templates
 expansions:
-  direction:  # Name matches what template expects
+  direction:
     type: map
     field: direction
     mappings:
@@ -101,103 +133,55 @@ expansions:
       ROW:
         up: "-v -f -b"
         down: "-v -f"
-  
-  target:  # Simple name
-    type: format
-    template: "-t {target}"
-    default: ""
-
 # Command templates
 commands:
-  - match:
-      verb: CREATE
-      object: PANE
-    exec: "tmux split-window {direction} {target}"
-    
-  - match:
-      verb: CREATE
-      object: COL
-    exec: "tmux split-window {direction} {target}"
-    
-  - match:
-      verb: CREATE
-      object: ROW
-    exec: "tmux split-window {direction} {target}"
-    
-  - match:
-      verb: CREATE
-      object: WINDOW
-    exec: "tmux new-window {target}"
-    
-  - match:
-      verb: DELETE
-      object: PANE
-    exec: "tmux kill-pane {target}"
-    
-  - match:
-      verb: DELETE
-      object: WINDOW
-    exec: "tmux kill-window {target}"
-    
-  - match:
-      verb: DELETE
-      object: SESSION
-    exec: "tmux kill-session {target}"
-    
-  - match:
-      verb: LIST
-      object: PANES
+  # Visual selector commands
+  - match: {verb: GO, object: PANE, target: ".?"}
+    exec: "tmux display-panes"
+  - match: {verb: DELETE, object: PANE, target: ".?"}
+    exec: "tmux display-panes 'kill-pane -t \"%%\"'"
+  - match: {verb: SWAP, object: PANE, with: ".?"}
+    exec: "tmux display-panes 'swap-pane -t \"%%\"'"
+  - match: {verb: GO, object: WINDOW, target: ":?"}
+    exec: "tmux choose-window"
+  - match: {verb: DELETE, object: WINDOW, target: ":?"}
+    exec: "tmux choose-window 'kill-window -t \"%%\"'"
+  - match: {verb: SWITCH, object: SESSION, target: "?"}
+    exec: "tmux choose-session"
+  # Regular commands
+  - match: {verb: CREATE, object: PANE}
+    exec: "tmux split-window {direction} -t {target}"
+  - match: {verb: CREATE, object: COL}
+    exec: "tmux split-window {direction} -t {target}"
+  - match: {verb: CREATE, object: ROW}
+    exec: "tmux split-window {direction} -t {target}"
+  - match: {verb: CREATE, object: WINDOW}
+    exec: "tmux new-window -t {target}"
+  - match: {verb: DELETE, object: PANE}
+    exec: "tmux kill-pane -t {target}"
+  - match: {verb: DELETE, object: WINDOW}
+    exec: "tmux kill-window -t {target}"
+  - match: {verb: DELETE, object: SESSION}
+    exec: "tmux kill-session -t {target}"
+  - match: {verb: LIST, object: PANES}
     exec: "tmux list-panes"
-    
-  - match:
-      verb: LIST
-      object: WINDOWS
+  - match: {verb: LIST, object: WINDOWS}
     exec: "tmux list-windows"
-    
-  # Navigation commands - most critical for developers
-  - match:
-      verb: GO
-      object: PANE
-    exec: "tmux select-pane {target}"
-    
-  - match:
-      verb: GO
-      object: WINDOW
-    exec: "tmux select-window {target}"
-    
-  - match:
-      verb: SWITCH
-      object: PANE
-    exec: "tmux select-pane {target}"
-    
-  - match:
-      verb: SWITCH
-      object: WINDOW  
-    exec: "tmux select-window {target}"
-    
-  - match:
-      verb: SWITCH
-      object: SESSION
-    exec: "tmux switch-client {target}"
-    
-  # Swap commands - rearrange panes/windows
-  - match:
-      verb: SWAP
-      object: PANE
-    exec: "tmux swap-pane -s {source} {target}"
-    
-  - match:
-      verb: SWAP
-      object: WINDOW
-    exec: "tmux swap-window -s {source} {target}"
-    
-  # Rename commands
-  - match:
-      verb: RENAME
-      object: WINDOW
+  - match: {verb: GO, object: PANE}
+    exec: "tmux select-pane -t {target}"
+  - match: {verb: GO, object: WINDOW}
+    exec: "tmux select-window -t {target}"
+  - match: {verb: SWITCH, object: PANE}
+    exec: "tmux select-pane -t {target}"
+  - match: {verb: SWITCH, object: WINDOW}
+    exec: "tmux select-window -t {target}"
+  - match: {verb: SWITCH, object: SESSION}
+    exec: "tmux switch-client -t {target}"
+  - match: {verb: SWAP, object: PANE}
+    exec: "tmux swap-pane -s {target} -t {with}"
+  - match: {verb: SWAP, object: WINDOW}
+    exec: "tmux swap-window -s {target} -t {with}"
+  - match: {verb: RENAME, object: WINDOW}
     exec: "tmux rename-window {name}"
-    
-  - match:
-      verb: RENAME
-      object: SESSION
+  - match: {verb: RENAME, object: SESSION}
     exec: "tmux rename-session {name}"
