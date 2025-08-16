@@ -13,23 +13,19 @@ class ALIParser:
 
     def tokenize(self, command: str) -> List[str]:
         """Tokenize command string into parts."""
-        # Pattern matches:
-        # - Quoted strings (preserve spaces inside)
-        # - Pane refs (.1, .2)
-        # - Window refs (:1, :2)
-        # - Visual selector (?)
-        # - Words
-        # - Numbers
+        # Pattern matches (no domain knowledge):
+        # - Quoted strings (preserve spaces)
+        # - Special single chars (?, @, etc.)
+        # - Identifiers (can contain letters, numbers, dots, colons, hyphens)
+        # - Plain numbers
         pattern = r"""
-            "[^"]*"|           # Double quoted string
-            '[^']*'|           # Single quoted string
-            \.[a-zA-Z]\w*|     # Dot-prefixed words (.THIS, .current)
-            \.\d+|             # Pane reference (.1, .2)
-            :[a-zA-Z]\w*|      # Colon-prefixed words (:THIS, :current)
-            :\d+|              # Window reference (:1, :2)
-            \?|                # Visual selector
-            [a-zA-Z][\w-]*|    # Words (can contain hyphen)
-            \d+                # Numbers
+            "[^"]*"|                          # Double quoted string
+            '[^']*'|                          # Single quoted string
+            \?|@|#|!|                         # Special single characters
+            [a-zA-Z_][a-zA-Z0-9_:.\-]*|       # Identifiers (can have : . -)
+            \.[a-zA-Z0-9_]+|                  # Dot-prefixed identifiers
+            :[a-zA-Z0-9_]+|                   # Colon-prefixed identifiers
+            \d+                               # Plain numbers
         """
 
         tokens = re.findall(pattern, command, re.VERBOSE | re.IGNORECASE)

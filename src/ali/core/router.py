@@ -21,7 +21,6 @@ class Router:
             try:
                 plugin = YamlPlugin(plugin_path)
                 self.register(plugin)
-                print(f"Loaded plugin: {plugin.name}")
             except Exception as e:
                 print(f"Failed to load {plugin_path}: {e}")
 
@@ -37,6 +36,13 @@ class Router:
             if verb not in self.registry:
                 self.registry[verb] = []
             self.registry[verb].append(plugin)
+
+        # Also register verb aliases
+        verb_aliases = vocabulary.get("verb_aliases", {})
+        for alias, target_verb in verb_aliases.items():
+            if alias not in self.registry:
+                self.registry[alias] = []
+            self.registry[alias].append(plugin)
 
     def route(self, parsed: Dict[str, Any]) -> Optional[YamlPlugin]:
         """Find the right plugin for a command."""

@@ -79,6 +79,16 @@ class ExpansionEngine:
     def _expand_format(self, cmd: dict, rule: dict) -> str:
         """Format string with command fields."""
         template = rule.get("template", "")
+
+        # If template contains a field that's empty, return default
+        # This prevents "-t " with no value
+        import re
+
+        fields = re.findall(r"\{(\w+)\}", template)
+        for field in fields:
+            if field in cmd and not cmd[field]:
+                return rule.get("default", "")
+
         try:
             return template.format(**cmd)
         except KeyError:

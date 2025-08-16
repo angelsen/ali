@@ -9,16 +9,26 @@ context:
 # Plugin vocabulary - what this plugin understands
 vocabulary:
   verbs: [CREATE, DELETE, LIST, GO, SWITCH, SWAP, RENAME]
+  verb_aliases:
+    KILL: DELETE      # KILL → DELETE (tmux native term)
+    REMOVE: DELETE    # REMOVE → DELETE
+    CLOSE: DELETE     # CLOSE → DELETE
+    SELECT: GO        # SELECT → GO
+    MOVE: GO          # MOVE → GO
+    NAVIGATE: GO      # NAVIGATE → GO
   objects: [PANE, PANES, WINDOW, WINDOWS, SESSION, SESSIONS, ROW, COL]
   directions: [left, right, up, down, above, below]
   clauses: [WITH, FROM, TO]
   target_patterns:
-    - {regex: "^\\.\\d+$"}      # .1, .2 (pane refs)
-    - {regex: "^:\\d+$"}        # :1, :2 (window refs)
-    - ".THIS"                  # Current pane
-    - ":THIS"                  # Current window  
-    - "THIS"                   # Current session
-    - "CURRENT"                # Alias for current
+    - {regex: "^[\\w-]+:\\d+\\.\\d+$"}  # session:window.pane
+    - {regex: "^[\\w-]+:\\d+$"}        # session:window
+    - {regex: "^\\.\\d+$"}             # .1, .2 (pane refs)
+    - {regex: "^:\\d+$"}               # :1, :2 (window refs)
+    - {regex: "^[\\w-]+$"}             # session names
+    - ".THIS"                          # Current pane
+    - ":THIS"                          # Current window  
+    - "THIS"                           # Current session
+    - "CURRENT"                        # Alias for current
     - "?"
 
 # Field aliases - map parser fields to template fields
@@ -37,13 +47,15 @@ field_transformations:
 # Object inference - infer object type from target pattern
 inference:
   object_from_target:
-    "^\\.\\d+$": PANE          # .1 .2 etc → PANE
-    "^\\.THIS$": PANE          # .THIS → current pane
-    "^:\\d+$": WINDOW          # :1 :2 etc → WINDOW
-    "^:THIS$": WINDOW          # :THIS → current window
-    "^THIS$": SESSION          # THIS → current session
-    "^CURRENT$": SESSION       # CURRENT → current session
-    "^[\\w-]+$": SESSION       # names → SESSION (must be last!)
+    "^[\\w-]+:\\d+\\.\\d+$": PANE      # session:window.pane → PANE
+    "^\\.\\d+$": PANE                  # .1 .2 etc → PANE
+    "^\\.THIS$": PANE                  # .THIS → current pane
+    "^[\\w-]+:\\d+$": WINDOW           # session:window → WINDOW
+    "^:\\d+$": WINDOW                  # :1 :2 etc → WINDOW
+    "^:THIS$": WINDOW                  # :THIS → current window
+    "^THIS$": SESSION                  # THIS → current session
+    "^CURRENT$": SESSION               # CURRENT → current session
+    "^[\\w-]+$": SESSION               # names → SESSION (must be last!)
 
 # Validation rules
 validations:
@@ -162,6 +174,11 @@ commands:
       verb: SWITCH
       object: WINDOW  
     exec: "tmux select-window {target}"
+    
+  - match:
+      verb: SWITCH
+      object: SESSION
+    exec: "tmux switch-client {target}"
     
   # Swap commands - rearrange panes/windows
   - match:

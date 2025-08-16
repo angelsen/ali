@@ -130,6 +130,12 @@ class YamlPlugin:
         else:
             return False
 
+        # Resolve verb alias if exists
+        vocabulary = self.config.get("vocabulary", {})
+        verb_aliases = vocabulary.get("verb_aliases", {})
+        if verb in verb_aliases:
+            verb = verb_aliases[verb]
+
         # Direct match first
         for command in self.commands:
             match = command.get("match", {})
@@ -186,6 +192,13 @@ class YamlPlugin:
         # If we got tokens, parse them first
         if "tokens" in cmd:
             cmd = self.parse_tokens(cmd)
+
+        # Resolve verb alias if exists
+        vocabulary = self.config.get("vocabulary", {})
+        verb_aliases = vocabulary.get("verb_aliases", {})
+        verb = cmd.get("verb", "")
+        if verb in verb_aliases:
+            cmd["verb"] = verb_aliases[verb]
 
         # Apply field aliases (e.g., from → target)
         for old_field, new_field in self.field_aliases.items():
