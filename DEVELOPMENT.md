@@ -38,21 +38,22 @@ result = router.execute("DELETE .2")
 print(result)  # "tmux kill-pane -t .2" - just a string!
 ```
 
-### 3. Debug Parsing
+### 3. Debug Grammar-Based Parsing
 
 ```python
 # See what parser understood
-state = router.parse("WIDTH 012 AS 1/2")
+plugin = registry.get_plugin_for_verb("WIDTH")
+state = router._parse("WIDTH", ["012", "AS", "1/2"], plugin)
 print(state)  # {'verb': 'WIDTH', 'panes': '012', 'clause': 'AS', 'fraction': '1/2'}
 ```
 
-### 4. Test Pattern Matching
+### 4. Test Grammar Definitions
 
 ```python
-# Quick pattern test
-from src.ali.core import Plugin
-tmux = registry.get_plugin_for_verb("GO")
-tmux.match_token_pattern(".2")  # Returns 'target'
+# See plugin grammar
+tmux = registry.get_plugin_for_verb("SPLIT")
+print(tmux.grammar)
+# {'direction': {'values': ['left', 'right', ...], 'transform': 'lower'}, ...}
 ```
 
 ## Useful REPL Helpers

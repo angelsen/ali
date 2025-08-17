@@ -23,13 +23,12 @@ ALI> BROWSE               # Open file browser
 
 ## How It Works
 
-Plugins provide services, ALI chains them together:
+Plugins define grammar and templates, ALI composes them:
 
 ```
-EDIT @?  →  micro needs file_selector
-            →  broot provides that, needs pane
-               →  tmux provides that
-                  →  Execute: tmux split | broot | micro
+SPLIT left  →  Plugin defines: direction: {values: [left, right, ...]}
+            →  Template: {split_{direction}}
+            →  Resolves: {split_left} → "tmux split-window -h -b"
 ```
 
 ## Architecture
@@ -57,6 +56,11 @@ requires: [pane]
 
 vocabulary:
   verbs: [EDIT, VIEW]
+
+grammar:
+  file:
+    type: string
+    description: "File path to edit"
 
 commands:
   - match: {verb: EDIT, file: present}

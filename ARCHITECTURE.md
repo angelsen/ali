@@ -20,10 +20,10 @@ User Input → Parse → Route → Resolve → Execute
 - Plugin script delegation
 
 ### 2. Core Layer (`core/`)
-- **Router**: Verb-driven command parsing
-- **Registry**: Service discovery and dependency tracking
-- **Resolver**: Service chain building
-- **Plugin**: YAML configuration loader
+- **Router**: Verb-driven command parsing with plugin-defined grammar
+- **Registry**: Service discovery and plugin management
+- **Resolver**: Two-pass template substitution for command building
+- **Plugin**: YAML configuration and grammar loader
 
 ### 3. Plugin Layer (`plugins/*/`)
 - YAML-only configuration (no code in plugins)
@@ -32,20 +32,26 @@ User Input → Parse → Route → Resolve → Execute
 
 ## Key Concepts
 
-### Service Composition
-Plugins declare services they provide and require. The system automatically builds command chains:
+### Template Composition
+Two-pass substitution enables powerful template composition:
 
-```
-EDIT @? → micro needs file_selector
-        → broot provides file_selector, needs pane
-        → tmux provides pane
-        → Result: "tmux split | broot | micro"
+```yaml
+# One pattern handles all directions:
+exec: "{split_{direction}}"
+# First pass: {direction} → "left"
+# Second pass: {split_left} → "tmux split-window -h -b"
 ```
 
-### Pattern Ownership
-Plugins own their syntax patterns:
-- tmux owns `.` (panes) and `:` (windows)
-- broot owns `@` (file selectors)
+### Grammar-Driven Parsing
+Plugins define complete grammar for their fields:
+```yaml
+grammar:
+  direction:
+    values: [left, right, up, down]
+    transform: lower
+  fraction:
+    pattern: "^\d+/\d+$"
+```
 
 ### Inference Rules
 Smart transformations defined in YAML:

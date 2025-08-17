@@ -6,10 +6,11 @@ Plugins declare services they provide/require. The system builds command chains.
 ## Current State (MVP Complete ✅)
 
 ### Working Features
-- **Service Discovery** - Plugins declare provides/requires
+- **Plugin-Defined Grammar** - Plugins define complete parsing rules
+- **Template Composition** - Two-pass substitution ({split_{direction}})
 - **Command Resolution** - Verbs route to plugins, build exec strings
 - **Plugin Scripts** - Complex operations via `ali --plugin-script tmux.distribute`
-- **Pattern Ownership** - Plugins own their syntax (`.` for panes, `@` for files)
+- **Strict Validation** - Leftover token detection, grammar enforcement
 - **Inference Rules** - Smart transformations (`GO ?` → `GO .?`)
 
 ### Working Commands
@@ -24,13 +25,21 @@ ali "BROWSE"             # Open file browser
 
 ## Architecture Achieved
 
-### Service Chain Example
+### Grammar-Driven Parsing
+```yaml
+grammar:
+  direction:
+    values: [left, right, up, down]
+    transform: lower
+  fraction:
+    pattern: "^\d+/\d+$"
 ```
-EDIT @?
-  → micro needs file_selector
-    → broot provides file_selector, needs pane
-      → tmux provides pane
-        → BUILD: "tmux split-window -h -b 'br --cmd :edit'"
+
+### Template Composition
+```yaml
+# One pattern for all directions:
+exec: "{split_{direction}}"
+# Resolves: left → {split_left} → "tmux split-window -h -b"
 ```
 
 ### Plugin Scripts

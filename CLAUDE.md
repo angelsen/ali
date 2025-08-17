@@ -33,15 +33,16 @@ STOP → READ the full file → EVALUATE alternatives → REFACTOR first → THE
 ❌ **Bad**: "Script fails, let me add error handling everywhere"
 ✅ **Good**: "Scripts should be simple. Move complexity to plugins or core"
 
-❌ **Bad**: "Pattern matching needs more code in router"
-✅ **Good**: "Patterns belong to plugins. Router asks plugin.match_token_pattern()"
+❌ **Bad**: "Router needs to know about targets, directions, objects"
+✅ **Good**: "Plugins define their grammar. Router just applies it"
 
 ### ALI-Specific Principles
 
 1. **Plugins are data, not code** - If you're writing plugin code, stop and use YAML
-2. **Services emerge** - Don't create service contracts, let plugins declare them
-3. **Scripts for complexity** - Complex logic goes in scripts, not YAML gymnastics
-4. **Test in REPL first** - Router returns strings. Test without execution
+2. **Grammar is declarative** - Plugins define parsing rules, not procedural code
+3. **Template composition** - Use {split_{direction}} not 6 separate patterns
+4. **Scripts for complexity** - Complex logic goes in scripts, not YAML gymnastics
+5. **Test in REPL first** - Router returns strings. Test without execution
 
 ### Rules for Tool Usage
 
