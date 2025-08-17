@@ -1,113 +1,186 @@
-"""Router for ALI - finds the right plugin for a command based on verb and context."""
+"""Command Router - Parses commands and orchestrates resolution."""
 
-from typing import List, Dict, Any, Optional
-from pathlib import Path
-from .plugin import YamlPlugin
+import shlex
+import re
+from typing import Dict, Any, Optional, List
+from .plugin import Plugin
+from .registry import ServiceRegistry
+from .resolver import resolve_command
 
 
 class Router:
-    """Routes commands to appropriate plugins based on verb and context."""
+    """Routes commands to plugins and resolves them."""
 
-    def __init__(self):
-        """Initialize empty router."""
-        self.plugins: List[YamlPlugin] = []
-        self.registry: Dict[str, List[YamlPlugin]] = {}  # verb → [plugins]
+    def __init__(self, registry: ServiceRegistry):
+        """Initialize with a service registry."""
+        self.registry = registry
 
-    def load_plugins(self, plugin_dir: str | Path) -> None:
-        """Load all plugins from a directory."""
-        plugin_dir = Path(plugin_dir)
+    def execute(self, command_str: str) -> str:
+        """Parse, route, and resolve a command to executable string.
 
-        for plugin_path in plugin_dir.glob("*/plugin.yaml"):
-            try:
-                plugin = YamlPlugin(plugin_path)
-                self.register(plugin)
-            except Exception as e:
-                print(f"Failed to load {plugin_path}: {e}")
+        This is the main entry point - takes a command string,
+        returns an executable command or error.
+        """
+        # Parse into tokens
+        try:
+            tokens = shlex.split(command_str)
+        except ValueError as e:
+            return f"Error: Parse error: {e}"
 
-    def register(self, plugin: YamlPlugin) -> None:
-        """Register a plugin and index its verbs."""
-        self.plugins.append(plugin)
+        if not tokens:
+            return "Error: Empty command"
 
-        # Index verbs for fast routing
-        vocabulary = plugin.config.get("vocabulary", {})
-        verbs = vocabulary.get("verbs", [])
+        # First token is the verb
+        verb = tokens[0].upper()
 
-        for verb in verbs:
-            if verb not in self.registry:
-                self.registry[verb] = []
-            self.registry[verb].append(plugin)
-
-        # Also register verb aliases
-        verb_aliases = vocabulary.get("verb_aliases", {})
-        for alias, target_verb in verb_aliases.items():
-            if alias not in self.registry:
-                self.registry[alias] = []
-            self.registry[alias].append(plugin)
-
-    def route(self, parsed: Dict[str, Any]) -> Optional[YamlPlugin]:
-        """Find the right plugin for a command."""
-        verb = parsed.get("verb", "")
-        context = parsed.get("context", {})
-
-        # Get plugins that handle this verb
-        candidates = self.registry.get(verb, [])
-
-        if not candidates:
-            return None
-
-        if len(candidates) == 1:
-            # Only one plugin handles this verb - easy!
-            return candidates[0]
-
-        # Multiple plugins - use context to disambiguate
-        return self._select_by_context(candidates, context)
-
-    def _select_by_context(
-        self, plugins: List[YamlPlugin], context: Dict[str, Any]
-    ) -> Optional[YamlPlugin]:
-        """Select plugin based on context when multiple plugins handle the same verb."""
-        env = context.get("env", {})
-        caller = context.get("caller", "")
-
-        for plugin in plugins:
-            plugin_context = plugin.config.get("context", {})
-
-            # Check environment requirements
-            env_required = plugin_context.get("env_required")
-            if env_required and env_required in env:
-                return plugin
-
-            # Check caller match
-            caller_match = plugin_context.get("caller")
-            if caller_match and caller == caller_match:
-                return plugin
-
-        # No context match - return first (or None)
-        return plugins[0] if plugins else None
-
-    def list_verbs(self) -> Dict[str, List[str]]:
-        """List all available verbs and which plugins handle them."""
-        result = {}
-        for verb, plugins in self.registry.items():
-            result[verb] = [p.name for p in plugins]
-        return result
-
-    def execute(self, command: str, context: Optional[Dict[str, Any]] = None) -> str:
-        """Parse, route, and execute a command."""
-        from .parser import parse
-
-        # Parse command
-        parsed = parse(command, context)
-
-        # Find plugin
-        plugin = self.route(parsed)
+        # Find plugin that handles this verb
+        plugin = self.registry.get_plugin_for_verb(verb)
         if not plugin:
-            verb = parsed.get("verb", "")
-            available = list(self.registry.keys())
+            available = list(self.registry.verb_index.keys())
             if available:
-                return f"Unknown command: {verb}. Available: {', '.join(sorted(available))}"
-            else:
-                return "No plugins loaded"
+                return (
+                    f"Unknown verb: {verb}. Available: {', '.join(sorted(available))}"
+                )
+            return f"Unknown verb: {verb}. No plugins loaded."
 
-        # Execute
-        return plugin.execute(parsed)
+        # Parse according to plugin's expectations
+        state = self._parse(verb, tokens[1:], plugin)
+
+        # Apply plugin's inference rules
+        state = self._apply_inference(state, plugin)
+
+        # Find matching command in plugin
+        command = self._find_command(state, plugin)
+        if not command:
+            return f"No matching command for: {command_str}"
+
+        # Resolve to executable command
+        return resolve_command(state, plugin, command, self.registry)
+
+    def _parse(self, verb: str, tokens: List[str], plugin: Plugin) -> Dict[str, Any]:
+        """Parse tokens according to plugin's expectations."""
+        state: Dict[str, Any] = {"verb": verb}
+
+        # Get expectations for this verb
+        expectations = plugin.expectations.get(verb, [])
+        if not expectations:
+            # No expectations, just store tokens as args
+            if tokens:
+                state["args"] = tokens
+            return state
+
+        token_index = 0
+        for expectation in expectations:
+            # Check if optional (ends with ?)
+            optional = expectation.endswith("?")
+            field_name = expectation.rstrip("?")
+
+            # No more tokens
+            if token_index >= len(tokens):
+                if not optional:
+                    # Required field missing, but continue anyway
+                    pass
+                break
+
+            token = tokens[token_index]
+
+            # Check if token matches any plugin patterns
+            matched_field = self._match_pattern(token, plugin)
+            if matched_field:
+                state[matched_field] = token
+                token_index += 1
+                continue
+
+            # Parse based on field type
+            if field_name == "object":
+                if token.upper() in plugin.objects:
+                    state["object"] = token.upper()
+                    token_index += 1
+                elif not optional:
+                    # Take it anyway
+                    state["object"] = token.upper()
+                    token_index += 1
+
+            elif field_name == "direction":
+                if token.lower() in plugin.directions:
+                    state["direction"] = token.lower()
+                    token_index += 1
+
+            else:
+                # Generic field, just store the token
+                state[field_name] = token
+                token_index += 1
+
+        # Any remaining tokens become args
+        if token_index < len(tokens):
+            state["args"] = tokens[token_index:]
+
+        return state
+
+    def _match_pattern(self, token: str, plugin: Plugin) -> Optional[str]:
+        """Check if token matches any of plugin's patterns."""
+        for pattern in plugin.patterns:
+            field = pattern.get("field")
+
+            # Check regex
+            if "regex" in pattern:
+                if re.match(pattern["regex"], token):
+                    return field
+
+            # Check keywords
+            if "keywords" in pattern:
+                if token in pattern["keywords"]:
+                    return field
+
+        return None
+
+    def _apply_inference(self, state: Dict[str, Any], plugin: Plugin) -> Dict[str, Any]:
+        """Apply plugin's inference rules."""
+        for rule in plugin.inference:
+            when = rule.get("when", {})
+
+            # Check if rule conditions match
+            if self._matches_conditions(state, when):
+                # Apply transformations
+                if "transform" in rule:
+                    for field, value in rule["transform"].items():
+                        if field in state:
+                            state[field] = value
+
+                # Set new fields
+                if "set" in rule:
+                    for field, value in rule["set"].items():
+                        state[field] = value
+
+        return state
+
+    def _matches_conditions(self, state: Dict, conditions: Dict) -> bool:
+        """Check if state matches rule conditions."""
+        for key, expected in conditions.items():
+            actual = state.get(key)
+
+            # Special checks
+            if expected == "present":
+                if key not in state or not state[key]:
+                    return False
+            elif expected is None or expected == "null":
+                if actual is not None:
+                    return False
+            elif isinstance(expected, str) and expected.startswith("^"):
+                # Regex pattern
+                if actual is None or not re.match(expected, str(actual)):
+                    return False
+            else:
+                # Direct comparison
+                if actual != expected:
+                    return False
+
+        return True
+
+    def _find_command(self, state: Dict[str, Any], plugin: Plugin) -> Optional[Dict]:
+        """Find matching command in plugin."""
+        for command in plugin.commands:
+            match = command.get("match", {})
+            if self._matches_conditions(state, match):
+                return command
+        return None

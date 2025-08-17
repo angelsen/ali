@@ -1,0 +1,45 @@
+name: micro
+version: 2.0
+description: Modern terminal text editor
+provides:
+  text_editor:
+    type: service
+    capabilities: [edit, view, create]
+requires:
+  - pane # Needs pane to display editor
+vocabulary:
+  verbs: [EDIT, ED, VIEW]
+# Verb expectations
+expectations:
+  EDIT: [file, "target?"]
+  ED: [file, "target?"]
+  VIEW: [file, "target?"]
+commands:
+  # Edit with file selector
+  - match: {verb: EDIT, file: "@?"}
+    exec: "micro {resolved_file}"
+    needs: [file_selector, pane]
+    service_request:
+      file_selector: interactive # Request interactive file selection
+    pane_hints: {position: right}
+  # Edit specific file in current/new pane
+  - match: {verb: EDIT, file: present}
+    exec: "micro {file}"
+    needs: pane
+    pane_hints: {position: right}
+  # Edit in specific target pane (already exists)
+  - match: {verb: EDIT, file: present, target: present}
+    exec: "micro {file}"
+    needs: pane
+    pane_target: "{target}" # Use existing pane
+  # View file (read-only mode)
+  - match: {verb: VIEW, file: present}
+    exec: "micro -readonly {file}"
+    needs: pane
+    pane_hints: {position: right}
+# Service configuration
+service_config:
+  text_editor:
+    default_command: "micro"
+    supports_multiple_files: true
+    supports_readonly: true

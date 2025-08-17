@@ -1,137 +1,89 @@
 name: tmux
-version: 3.0
-description: Tmux control with smart parsing and distribution commands
-# When this plugin is active
+version: 2.0
+description: Terminal multiplexer - pane and window management
+provides:
+  pane:
+    type: service
+    capabilities: [create, split, focus, close]
+  window:
+    type: service
+    capabilities: [create, focus, close]
+  session:
+    type: service
+    capabilities: [create, switch, close]
 context:
-  env_required: TMUX
-# Plugin vocabulary
+  requires_env: TMUX
 vocabulary:
-  verbs: [CREATE, DELETE, LIST, GO, SWITCH, SWAP, RENAME, HORIZONTAL, VERTICAL]
-  verb_aliases:
-    # Action aliases
-    KILL: DELETE
-    REMOVE: DELETE
-    CLOSE: DELETE
-    SELECT: GO
-    MOVE: GO
-    NAVIGATE: GO
-    NEW: CREATE
-    MAKE: CREATE
-    # Short forms
-    N: CREATE
-    D: DELETE
-    G: GO
-    L: LIST
-    S: SWITCH
-    R: RENAME
-    H: HORIZONTAL
-    V: VERTICAL
-  objects: [PANE, PANES, WINDOW, WINDOWS, SESSION, SESSIONS, ROW, COL]
-  directions: [left, right, up, down, above, below]
-  clauses: [WITH, FROM, TO, AS]
-# Token parsing rules
-parsing:
-  token_rules:
-    # Object detection (first position)
-    - match: {position: 0, in_set: objects}
-      action: set
-      field: object
-      transform: upper
-    # Directions
-    - match: {in_set: directions}
-      action: set
-      field: direction
-      transform: lower
-    # Pane numbers for WIDTH/HEIGHT (like "024")
-    - match: {regex: "^\\d+$"}
-      action: set
-      field: panes
-    # Target patterns
-    - match: {regex: "^[.:][\\w\\d?]*$|^\\?$|^THIS$|^CURRENT$"}
-      action: set
-      field: target
-    # Clauses consume next token
-    - match: {in_set: clauses}
-      action: consume_next
-      field: "{token_lower}"
-    # Everything else goes to args
-    - match: {else: true}
-      action: accumulate
-      field: args
-# Inference rules
+  verbs: [GO, DELETE, SPLIT, CREATE, WIDTH, HEIGHT]
+  objects: [PANE, WINDOW, SESSION]
+  directions: [left, right, up, down]
+  clauses: [AS] # For WIDTH 012 AS 1/2
+# Token patterns this plugin recognizes
+patterns:
+  - field: target
+    regex: "^\\."
+    description: "Pane selectors (.1, .left, .?)"
+  - field: target
+    regex: "^:"
+    description: "Window selectors (:1, :?)"
+  - field: target
+    keywords: ["?", "THIS", "CURRENT"]
+    description: "Special selectors"
+# Verb expectations
+expectations:
+  GO: [target]
+  DELETE: ["object?", "target?"]
+  SPLIT: ["direction?"]
+  CREATE: [object, "direction?"]
+  WIDTH: [panes, "clause?", "fraction?"] # WIDTH 012 or WIDTH 012 AS 1/2
+  HEIGHT: [panes, "clause?", "fraction?"] # HEIGHT 012 or HEIGHT 012 AS 1/2
+# Safe inference rules
 inference:
-  rules:
-    # Infer object from target prefix
-    - when: {target: "^\\.", object: null}
-      set: {object: PANE}
-    - when: {target: "^:", object: null}
-      set: {object: WINDOW}
-    - when: {target: "^(THIS|CURRENT)$", object: null}
-      set: {object: SESSION}
-    # Smart visual selector inference
-    - when: {verb: SWAP, target: "^\\.$", with: "^\\?$"}
-      transform: {with: ".?"}
-    - when: {verb: SWAP, target: "^:$", with: "^\\?$"}
-      transform: {with: ":?"}
-    # Default ? based on verb
-    - when: {verb: GO, target: "^\\?$", object: null}
-      set: {object: PANE}
-      transform: {target: ".?"}
-    - when: {verb: SWITCH, target: "^\\?$", object: null}
-      set: {object: SESSION}
-    # HORIZONTAL/VERTICAL only work with panes, so ? becomes .?
-    - when: {verb: HORIZONTAL, target: "^\\?$"}
-      transform: {target: ".?"}
-    - when: {verb: VERTICAL, target: "^\\?$"}
-      transform: {target: ".?"}
-# Field transformations
-transformations:
-  field_aliases:
-    from: target
-    to: name
-  field_transformations:
-    target:
-      ".": ""
-      ":": ""
-      ".THIS": ""
-      ":THIS": ""
-      "THIS": ""
-      "CURRENT": ""
-# Expansions
-expansions:
-  direction:
-    type: plugin
-    function: expand_direction
-  target_flag:
-    type: plugin
-    function: expand_target_flag
-  display_time:
-    type: format
-    template: "-d 2000"
-    default: "-d 2000"
-# Commands - now much simpler!
+  # GO ? → visual pane selector
+  - when: {verb: GO, target: "?"}
+    transform: {target: ".?"}
+  # Target prefix implies object
+  - when: {verb: DELETE, target: "^\\.", object: null}
+    set: {object: PANE}
+  - when: {verb: DELETE, target: "^:", object: null}
+    set: {object: WINDOW}
+  # SPLIT always means pane
+  - when: {verb: SPLIT}
+    set: {object: PANE}
 commands:
-  # Distribution commands (HORIZONTAL/VERTICAL)
-  # Visual selector versions with fraction (most specific first)
-  - match: {verb: HORIZONTAL, target: ".?", as: present}
-    exec: "tmux display-panes {display_time} \\; command-prompt -p 'Distribute horizontally for panes:' 'run-shell \"ali H %% AS {as}\"'"
-  - match: {verb: VERTICAL, target: ".?", as: present}
-    exec: "tmux display-panes {display_time} \\; command-prompt -p 'Distribute vertically for panes:' 'run-shell \"ali V %% AS {as}\"'"
-  # Visual selector versions without fraction
-  - match: {verb: HORIZONTAL, target: ".?"}
-    exec: "tmux display-panes {display_time} \\; command-prompt -p 'Distribute horizontally for panes:' 'run-shell \"ali H %%\"'"
-  - match: {verb: VERTICAL, target: ".?"}
-    exec: "tmux display-panes {display_time} \\; command-prompt -p 'Distribute vertically for panes:' 'run-shell \"ali V %%\"'"
-  # Regular versions with values
-  - match: {verb: HORIZONTAL, as: present}
-    exec: "ali --plugin-script tmux distribute --panes {panes} --dimension width --value {as}"
-  - match: {verb: HORIZONTAL}
-    exec: "ali --plugin-script tmux distribute --panes {panes} --dimension width"
-  - match: {verb: VERTICAL, as: present}
-    exec: "ali --plugin-script tmux distribute --panes {panes} --dimension height --value {as}"
-  - match: {verb: VERTICAL}
-    exec: "ali --plugin-script tmux distribute --panes {panes} --dimension height"
-  # All other commands use the dynamic generator
-  - match: {else: true}
-    type: plugin
-    function: generate_command
+  # Navigation
+  - match: {verb: GO, target: ".?"}
+    exec: "tmux display-panes"
+  - match: {verb: GO, target: present}
+    exec: "tmux select-pane -t {target}"
+  # Pane operations
+  - match: {verb: SPLIT, object: PANE, direction: left}
+    exec: "tmux split-window -h -b"
+  - match: {verb: SPLIT, object: PANE, direction: right}
+    exec: "tmux split-window -h"
+  - match: {verb: SPLIT, object: PANE}
+    exec: "tmux split-window -h"
+  - match: {verb: DELETE, object: PANE, target: present}
+    exec: "tmux kill-pane -t {target}"
+  # Window operations
+  - match: {verb: CREATE, object: WINDOW}
+    exec: "tmux new-window"
+  - match: {verb: DELETE, object: WINDOW, target: present}
+    exec: "tmux kill-window -t {target}"
+  # Pane distribution commands
+  - match: {verb: WIDTH, panes: present, fraction: present}
+    exec: "ali --plugin-script tmux.distribute --dimension width --panes {panes} --fraction {fraction}"
+  - match: {verb: WIDTH, panes: present}
+    exec: "ali --plugin-script tmux.distribute --dimension width --panes {panes}"
+  - match: {verb: HEIGHT, panes: present, fraction: present}
+    exec: "ali --plugin-script tmux.distribute --dimension height --panes {panes} --fraction {fraction}"
+  - match: {verb: HEIGHT, panes: present}
+    exec: "ali --plugin-script tmux.distribute --dimension height --panes {panes}"
+# Service templates for other plugins to use
+service_templates:
+  pane:
+    create: "tmux split-window {options}"
+    create_left: "tmux split-window -h -b -l {size}"
+    create_right: "tmux split-window -h -l {size}"
+    create_bottom: "tmux split-window -v -l {size}"
+    focus: "tmux select-pane -t {target}"

@@ -1,6 +1,13 @@
-"""ALI core components."""
+"""ALI Core - Service-oriented plugin architecture."""
 
-from .plugin import YamlPlugin
-from .rules import RulesEngine
+from .plugin import Plugin
+from .registry import ServiceRegistry
+from .resolver import resolve_command
+from .router import Router
 
-__all__ = ["YamlPlugin", "RulesEngine"]
+__all__ = [
+    "Plugin",
+    "ServiceRegistry",
+    "resolve_command",
+    "Router",
+]

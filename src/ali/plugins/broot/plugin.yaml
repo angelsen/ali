@@ -1,0 +1,58 @@
+name: broot
+version: 2.0
+description: Interactive file browser and selector
+provides:
+  file_selector:
+    type: service
+    capabilities: [select_file, select_directory, browse]
+    returns: filepath
+requires:
+  - pane # Needs pane to display interface
+vocabulary:
+  verbs: [BROWSE, BR]
+# Token patterns this plugin recognizes
+patterns:
+  - field: selector
+    regex: "^@"
+    description: "File selector request (@?)"
+# Verb expectations
+expectations:
+  BROWSE: ["path?"]
+  BR: ["path?"]
+commands:
+  # Open interactive browser
+  - match: {verb: BROWSE}
+    exec: "br"
+    needs: pane
+    pane_hints: {position: left, size: "40%"}
+  - match: {verb: BROWSE, path: present}
+    exec: "br {path}"
+    needs: pane
+    pane_hints: {position: left, size: "40%"}
+# Service handlers - how broot provides file selection
+service_handlers:
+  file_selector:
+    # Interactive selection mode
+    interactive:
+      exec: "br --cmd ':print_path'"
+      needs: pane
+      pane_hints: {position: left, size: "40%"}
+      returns: stdout # Returns selected path on stdout
+    # One-shot selection for specific actions
+    select_and_edit:
+      exec: "br --conf ~/ali.toml --cmd ':edit'"
+      needs: pane
+      pane_hints: {position: left, size: "40%"}
+# Broot configuration hints for integration
+integration:
+  verbs_config: |-
+    # In broot's verbs.hjson, users can add:
+    [[verbs]]
+    key = "alt-e"
+    external = "ali 'EDIT {file} .right'"
+    leave_broot = false
+
+    [[verbs]]
+    key = "alt-d"
+    external = "ali 'DELETE {file}'"
+    leave_broot = false
