@@ -11,7 +11,7 @@
 
 **Before using Write to create a new file - STOP:**
 - Do existing files need refactoring first?
-- Could this logic go in an existing file?
+- Could this logic go in an existing module?
 - Am I creating this file to avoid fixing a design flaw?
 
 **Before using Edit to patch a problem - STOP:**
@@ -25,45 +25,58 @@
 STOP → READ the full file → EVALUATE alternatives → REFACTOR first → THEN Write/Edit
 ```
 
-### Real Examples from This Project
+### Real Examples from ALI
 
-❌ **Bad**: "Template expects {direction_flags}, let me Edit to add it"
-✅ **Good**: "Wait, why does template know about expansions? Let me rethink the design"
+❌ **Bad**: "ServiceResolver needs complex logic, let me add more methods"
+✅ **Good**: "Wait, do we even need ServiceResolver? Just use functions in resolver.py"
 
-❌ **Bad**: "Plugin fails validation, let me Write a validator class"
-✅ **Good**: "Plugin fails validation. Should validation be in YAML instead of code?"
+❌ **Bad**: "Script fails, let me add error handling everywhere"
+✅ **Good**: "Scripts should be simple. Move complexity to plugins or core"
 
-❌ **Bad**: "Write test_plugin.py to test the plugin"
-✅ **Good**: "Do I need a test file, or should I test in REPL and improve the actual code?"
+❌ **Bad**: "Pattern matching needs more code in router"
+✅ **Good**: "Patterns belong to plugins. Router asks plugin.match_token_pattern()"
+
+### ALI-Specific Principles
+
+1. **Plugins are data, not code** - If you're writing plugin code, stop and use YAML
+2. **Services emerge** - Don't create service contracts, let plugins declare them
+3. **Scripts for complexity** - Complex logic goes in scripts, not YAML gymnastics
+4. **Test in REPL first** - Router returns strings. Test without execution
 
 ### Rules for Tool Usage
 
 1. **Read before Edit** - Always use Read tool to see full context
-2. **Grep before Write** - Check if similar code exists first
+2. **Grep before Write** - Check if similar patterns exist first
 3. **Delete before Add** - Can you remove code instead of adding?
 4. **Refactor before Feature** - Clean first, then build
-5. **Question before Commit** - Is this the right approach?
+5. **Test before Commit** - Does it work in REPL?
 
 ### The Checklist
 
 **Before Write tool:**
 - [ ] Did I Read all related files?
-- [ ] Did I check if this logic exists elsewhere?
-- [ ] Am I creating this to avoid fixing something else?
+- [ ] Did I check if this pattern exists in other plugins?
+- [ ] Could this be data (YAML) instead of code?
 
 **Before Edit tool:**
 - [ ] Did I Read the entire file first?
 - [ ] Is this fixing root cause or symptom?
-- [ ] Should I refactor instead of patch?
+- [ ] Would moving this to a plugin/script be cleaner?
 
 **Before MultiEdit tool:**
 - [ ] Are these edits related or should they be separate?
 - [ ] Am I doing bulk fixes that indicate a design flaw?
 
+### ALI Architecture Reminders
+
+**Core is thin** - Router, Registry, Resolver. That's it.
+**Plugins are dumb** - Just YAML configuration files.
+**Scripts are simple** - One job, clear arguments, no magic.
+
 ### Remember
 
-**This project is an infant.** Every file created now becomes technical debt later. Every Edit that patches instead of fixes compounds future complexity.
+**Every line of core code is a commitment.** Plugins can change freely, but core changes affect everything.
 
-When in doubt: **STOP using tools, THINK about design, REFACTOR existing code, THEN use Write/Edit**
+When in doubt: **STOP using tools, TEST in REPL, REFACTOR to plugins/scripts, THEN use Write/Edit**
 
-The best code is code you didn't write. The best fix is the one that removes the problem entirely.
+The best feature is one that needs no code - just YAML configuration.

@@ -1,65 +1,80 @@
-# ALI Roadmap
+# ALI Roadmap - Service-Based Plugin Architecture
 
-## Current State
+## Core Principle
+Plugins declare services they provide/require. The system builds command chains.
 
-✅ **Completed:**
-- Unified rules engine (parsing, inference, validation, expansion)
-- Ultra-dumb parser using shlex (37 lines, zero domain knowledge)
-- Data-driven token parsing via YAML rules
-- Plugin registration system with verb routing
-- Router with context-aware plugin selection
-- CLI with --dry-run and --list-verbs
-- Full tmux plugin implementation
-- Smart inference rules (object detection from targets)
-- Visual selectors (.?, :?, ?) with context-aware inference
-- Command aliases (NEW, KILL, etc.) and shortforms (n, d, g, l, s, r)
-- Field transformations and conditional expansions
-- Validation system with helpful error messages
-- Proper handling of empty targets (no empty -t flags)
+## Current State (MVP Complete ✅)
 
-🚧 **In Progress:**
-- Interactive UI (tmux-popup)
+### Working Features
+- **Service Discovery** - Plugins declare provides/requires
+- **Command Resolution** - Verbs route to plugins, build exec strings
+- **Plugin Scripts** - Complex operations via `ali --plugin-script tmux.distribute`
+- **Pattern Ownership** - Plugins own their syntax (`.` for panes, `@` for files)
+- **Inference Rules** - Smart transformations (`GO ?` → `GO .?`)
+
+### Working Commands
+```bash
+ali "GO .2"              # Navigate to pane
+ali "SPLIT left"         # Split pane
+ali "WIDTH 012"          # Distribute panes equally
+ali "WIDTH 012 AS 1/2"   # Make panes half window width
+ali "EDIT @?"            # File selector → editor (chain built)
+ali "BROWSE"             # Open file browser
+```
+
+## Architecture Achieved
+
+### Service Chain Example
+```
+EDIT @?
+  → micro needs file_selector
+    → broot provides file_selector, needs pane
+      → tmux provides pane
+        → BUILD: "tmux split-window -h -b 'br --cmd :edit'"
+```
+
+### Plugin Scripts
+```yaml
+# Complex operations delegate to scripts
+- match: {verb: WIDTH}
+  exec: "ali --plugin-script tmux.distribute --dimension width --panes {panes}"
+```
 
 ## Next Steps
 
-### 1. Interactive UI
-- [ ] tmux-popup integration
-- [ ] Command history
-- [ ] Tab completion using vocabulary
+### Phase 1: Better Service Resolution
+- [ ] Actually execute file selector and pass result to editor
+- [ ] Handle service responses (not just command strings)
+- [ ] Inter-plugin communication beyond command composition
 
-### 2. Tmux Integration Improvements
-- [ ] Keybinding setup script
-- [ ] Better context passing (ALI_CALLER=tmux-popup)
-- [ ] Direct execution mode (not just dry-run)
+### Phase 2: Multiple Providers
+- [ ] Handle multiple plugins providing same service
+- [ ] User preference system (EDITOR=vim)
+- [ ] Runtime service selection
 
-### 3. Enhanced Visual Selection
-✅ **Already Working:**
-```
-GO .?                   # Visual pane selector
-DELETE .?               # Visual delete pane
-GO :?                   # Visual window selector
-SWITCH ?                # Visual session selector
-SWAP . WITH .?          # Visual swap
-```
+### Phase 3: Advanced Features
+- [ ] Plugin hotloading
+- [ ] Service versioning
+- [ ] Plugin marketplace/discovery
 
-**Future Enhancements:**
-- [ ] Multi-select support for batch operations
-- [ ] Visual feedback during selection
+## Design Decisions
 
-### 4. More Plugins
-- [ ] Vim plugin (splits, tabs, buffers)
-- [ ] i3wm plugin (workspaces, windows)
-- [ ] Git plugin (as proof of concept)
+### What We Keep Simple
+- **No formal contracts** - Services are just names
+- **No complex DI** - Simple provider/require matching
+- **Scripts for complexity** - Don't overload YAML
 
-### 5. Advanced Features
-- [ ] Grammar merging from multiple plugins
-- [ ] Command history
-- [ ] Persistent configuration
-- [ ] Plugin discovery/installation
+### What We Don't Do
+- Not a package manager
+- Not a general plugin framework
+- Not trying to replace shell
 
-## Design Principles
+## Success Metrics Achieved ✅
+- **Install plugins, they work** - tmux + micro + broot just compose
+- **Clean separation** - Plugins don't know each other's implementation
+- **Extensible** - Easy to add new plugins following patterns
 
-1. **Plugins are data** - YAML configs, not code
-2. **Commands are intuitive** - If you can think it, you can type it
-3. **Errors are helpful** - Tell users what went wrong and how to fix it
-4. **Context aware** - Same command works differently in tmux vs vim
+## Development Philosophy
+- Start simple, evolve based on real use
+- Data-driven configuration over code
+- Explicit over magic

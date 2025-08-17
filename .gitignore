@@ -12,3 +12,4 @@ wheels/
 # Backup files and folders
 *.bak
 *.bak/
+*.v*

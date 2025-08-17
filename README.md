@@ -1,121 +1,73 @@
 # ALI - Action Language Interpreter
 
-Your command interpreter that speaks every tool's language. Write intuitive commands like `CREATE PANE LEFT` instead of memorizing complex keybindings.
+Natural language commands for your terminal tools. Type what you think, ALI figures out the rest.
 
-## Features
-
-- **Natural Commands**: `CREATE PANE LEFT`, `DELETE .1`, `GO :2`
-- **Visual Selectors**: `GO .?` shows panes, press number to select
-- **Smart Inference**: `GO ?` knows you mean pane, `SWITCH ?` means session
-- **Command Aliases**: Use `NEW` or `n` for CREATE, `d` for DELETE
-- **Plugin Architecture**: Extend ALI with YAML configs - no coding required
-- **Data-Driven**: All parsing rules defined in YAML, zero hardcoded logic
-- **Context Aware**: Commands adapt based on environment (tmux, vim, etc.)
-- **Helpful Errors**: Clear messages when commands are invalid
-
-## Installation
+## Quick Start
 
 ```bash
+# Install
 uv tool install .
-```
 
-### Tmux Integration
-
-Add to your `~/.tmux.conf`:
-
-```bash
-# ALI - Action Language Interpreter
-# Press C-b a to open ALI command prompt
+# Add to tmux (~/.tmux.conf)
 bind-key a command-prompt -p "ALI> " \
   "run-shell 'TMUX_PANE=#{pane_id} ali \"%%\"'"
+
+# Use (press C-b a in tmux)
+ALI> GO .2                # Go to pane 2
+ALI> SPLIT left           # Split current pane left
+ALI> WIDTH 012            # Make panes 0,1,2 equal width
+ALI> WIDTH 012 AS 1/2     # Make them half window width
+ALI> EDIT file.py         # Open file in editor
+ALI> BROWSE               # Open file browser
 ```
 
-Then reload tmux config: `tmux source-file ~/.tmux.conf`
+## How It Works
 
-## Usage
+Plugins provide services, ALI chains them together:
 
-### CLI Mode
-```bash
-# Basic commands
-ali "CREATE PANE LEFT"      # or "NEW PANE LEFT" or "n PANE LEFT"
-ali "DELETE .2"             # or "d .2"
-ali "GO :1"                 # or "g :1"
-ali "SWAP .1 WITH .2"       # Swap specific panes
-
-# Visual selectors
-ali "GO .?"                 # Shows pane numbers, press to select
-ali "DELETE .?"             # Visual delete
-ali "SWAP . WITH .?"        # Swap current with visual selection
-ali "SWITCH ?"              # Visual session switcher
-
-# Smart inference
-ali "GO ?"                  # Infers pane selector
-ali "DELETE ."              # Delete current pane
-
-# List available commands
-ali --list-verbs
-
-# Dry run (see what would execute)
-ali --dry-run "CREATE WINDOW"
 ```
-
-### From Tmux (C-b a)
-After setting up tmux integration, press `C-b a` then type:
-- `CREATE PANE RIGHT` - Split current pane
-- `DELETE .2` - Delete pane 2
-- `GO :1` - Go to window 1
-- `KILL .THIS` - Kill current pane
+EDIT @?  →  micro needs file_selector
+            →  broot provides that, needs pane
+               →  tmux provides that
+                  →  Execute: tmux split | broot | micro
+```
 
 ## Architecture
 
-ALI uses a data-driven plugin system where everything is configured in YAML:
-
-```yaml
-# plugins/tmux/plugin.yaml
-vocabulary:
-  verbs: [CREATE, DELETE, GO, SWAP]
-  verb_aliases: {NEW: CREATE, n: CREATE, d: DELETE}
-  objects: [PANE, WINDOW, SESSION]
-
-parsing:
-  token_rules:
-    - match: {position: 0, in_set: objects}
-      action: set
-      field: object
-
-inference:
-  rules:
-    - when: {verb: GO, target: "^\\?$", object: null}
-      set: {object: PANE}
-      transform: {target: ".?"}
-
-commands:
-  - match: {verb: CREATE, object: PANE}
-    exec: "tmux split-window {direction} {target_flag}"
+```
+src/ali/
+├── core/           # Service discovery & routing
+├── plugins/        # Pure YAML + optional scripts
+│   ├── tmux/       # Pane/window management
+│   ├── micro/      # Text editor
+│   └── broot/      # File browser
+└── cli.py          # Entry point
 ```
 
-Key components:
-- **Unified Rules Engine**: Handles parsing, inference, validation, and expansion
-- **Ultra-Dumb Parser**: 37 lines using shlex, zero domain knowledge
-- **Smart Inference**: Context-aware object detection and transformations
-- **Plugin Router**: Fast verb-based routing with context disambiguation
-- **Data-Driven**: All logic defined in YAML, no hardcoded rules
+Plugins are data (YAML), not code. Complex operations use scripts.
 
-## Current Status
+## Extending
 
-✅ **Working:**
-- Full tmux plugin with visual selectors
-- Smart inference and context-aware parsing
-- Command aliases and single-letter shortforms
-- Data-driven parsing via YAML rules
-- Unified rules engine for all processing
-- Proper empty target handling
-- Helpful validation and error messages
+Add a plugin by creating `plugin.yaml`:
 
-🚧 **In Progress:**
-- Interactive UI (tmux-popup)
-- Additional plugins (vim, i3, browser)
+```yaml
+name: vim
+provides: [text_editor]
+requires: [pane]
 
-## License
+vocabulary:
+  verbs: [EDIT, VIEW]
 
-MIT
+commands:
+  - match: {verb: EDIT, file: present}
+    exec: "vim {file}"
+```
+
+## Philosophy
+
+- Commands should be what you'd naturally type
+- Plugins don't know about each other
+- Data-driven > code
+- Explicit > magic
+
+MIT License
