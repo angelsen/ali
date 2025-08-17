@@ -8,11 +8,12 @@ from .plugin import Plugin
 class ServiceRegistry:
     """Tracks what services plugins provide and require."""
 
-    def __init__(self):
+    def __init__(self, logger=None):
         """Initialize empty registry."""
         self.plugins: List[Plugin] = []
         self.providers: Dict[str, List[Plugin]] = {}  # service -> [plugins]
         self.verb_index: Dict[str, Plugin] = {}  # verb -> plugin
+        self.logger = logger
 
     def load_plugins(self, plugin_dir: Path) -> None:
         """Load all plugins from directory."""
@@ -29,10 +30,12 @@ class ServiceRegistry:
                 if plugin.is_active():
                     self.register(plugin)
                 else:
-                    print(f"Skipped (inactive): {plugin.name}")
+                    if self.logger:
+                        self.logger.debug(f"Skipped (inactive): {plugin.name}")
 
             except Exception as e:
-                print(f"Failed to load {yaml_path}: {e}")
+                if self.logger:
+                    self.logger.log_plugin_load(yaml_path.parent.name, False, str(e))
 
     def register(self, plugin: Plugin) -> None:
         """Register a plugin and index its services and verbs."""
@@ -58,7 +61,8 @@ class ServiceRegistry:
                 self.verb_index[verb] = plugin
             # TODO: Handle multiple plugins with same verb
 
-        print(f"Registered: {plugin}")
+        if self.logger:
+            self.logger.log_plugin_load(plugin.name, True)
 
     def get_plugin_for_verb(self, verb: str) -> Optional[Plugin]:
         """Get plugin that handles a verb."""

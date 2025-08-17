@@ -7,6 +7,10 @@ provides:
     capabilities: [edit, view, create]
 requires:
   - pane # Needs pane to display editor
+# Metadata for logging and environment capture
+metadata:
+  environment:
+    optional: ["EDITOR", "VISUAL"] # Check if micro is default editor
 # Plugin grammar definitions
 grammar:
   file:
@@ -28,11 +32,11 @@ expectations:
   ED: [file, "target?", "direction?=right"]
   VIEW: [file, "target?", "direction?=right"]
 commands:
-  # === EDIT/ED with file selector (@?) - template composition! ===
+  # === EDIT/ED with file browser - open micro without file ===
   - match: {verb: [EDIT, ED], file: "@?", direction: present}
-    exec: "{split_{direction}} 'micro $({file_select})'"
+    exec: "{split_{direction}} 'micro'" # Micro has built-in file browser (Ctrl+E)
   - match: {verb: [EDIT, ED], file: "@?"}
-    exec: "{split_right} 'micro $({file_select})'"
+    exec: "{split_right} 'micro'" # Micro has built-in file browser (Ctrl+E)
   # === EDIT/ED from specific pane - ONE pattern for ALL directions! ===
   - match: {verb: [EDIT, ED], file: present, target: present, direction: present}
     exec: "{focus} {target} && {split_{direction}} 'micro {file}'"

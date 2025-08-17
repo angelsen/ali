@@ -13,6 +13,11 @@ provides:
     capabilities: [create, switch, close]
 context:
   requires_env: TMUX
+# Metadata for logging and environment capture
+metadata:
+  environment:
+    requires: ["TMUX"] # Required for plugin to work
+    captures: ["TMUX_PANE", "TMUX_WINDOW", "TMUX_SESSION"] # Passed via shell
 # Plugin grammar definitions - how to parse field types
 grammar:
   target:

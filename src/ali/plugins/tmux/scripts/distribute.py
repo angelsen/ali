@@ -4,11 +4,6 @@
 import argparse
 import subprocess
 import sys
-from pathlib import Path
-
-# Add src to path to import executor
-sys.path.insert(0, str(Path(__file__).parents[4]))
-from ali.executor import execute_command
 
 
 def main():
@@ -27,9 +22,6 @@ def main():
         "--fraction",
         "-f",
         help="Target fraction: 1/2, 2/3, etc. (default: equal distribution)",
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Show commands without executing"
     )
 
     args = parser.parse_args()
@@ -72,8 +64,8 @@ def main():
         # First pane gets the remainder pixels
         size = size_per_pane + (remainder if i == 0 else 0)
 
-        cmd = f"tmux resize-pane -t .{pane} {flag} {size}"
-        execute_command(cmd, execute=not args.dry_run)
+        # Output command to stdout (pure command aggregator)
+        print(f"tmux resize-pane -t .{pane} {flag} {size}")
 
     return 0
 

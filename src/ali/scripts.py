@@ -57,7 +57,8 @@ def execute_script(argv: List[str]) -> int:
             # Let the system figure out how to run it (shebang, etc.)
             cmd = [str(script_file)] + script_args
 
-        # Run and pass through output
+        # Run and pass through output (stdout goes to stdout, stderr to stderr)
+        # This is the default behavior when not capturing output
         result = subprocess.run(cmd)
         return result.returncode
 

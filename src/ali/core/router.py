@@ -14,6 +14,8 @@ class Router:
     def __init__(self, registry: ServiceRegistry):
         """Initialize with a service registry."""
         self.registry = registry
+        self.last_tokens = None  # Store for logging
+        self.last_state = None  # Store for logging
 
     def execute(self, command_str: str) -> str:
         """Parse, route, and resolve a command to executable string.
@@ -25,10 +27,17 @@ class Router:
         try:
             tokens = shlex.split(command_str)
         except ValueError as e:
+            self.last_tokens = None
+            self.last_state = None
             return f"Error: Parse error: {e}"
 
         if not tokens:
+            self.last_tokens = []
+            self.last_state = None
             return "Error: Empty command"
+
+        # Store tokens for logging
+        self.last_tokens = tokens
 
         # First token is the verb
         verb = tokens[0].upper()
@@ -36,6 +45,7 @@ class Router:
         # Find plugin that handles this verb
         plugin = self.registry.get_plugin_for_verb(verb)
         if not plugin:
+            self.last_state = {"verb": verb}
             available = list(self.registry.verb_index.keys())
             if available:
                 return (
@@ -45,6 +55,7 @@ class Router:
 
         # Parse according to plugin's expectations
         state = self._parse(verb, tokens[1:], plugin)
+        self.last_state = state  # Store for logging
 
         # Check for parse errors
         if "_parse_error" in state:
