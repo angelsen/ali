@@ -23,14 +23,12 @@ class Plugin:
         self.provides = self.config.get("provides", {})
         self.requires = self.config.get("requires", [])
 
-        # Vocabulary
+        # Grammar definitions - how to parse field types
+        self.grammar = self.config.get("grammar", {})
+
+        # Vocabulary - just verbs now, everything else is in grammar
         vocab = self.config.get("vocabulary", {})
         self.verbs = set(vocab.get("verbs", []))
-        self.objects = set(vocab.get("objects", []))
-        self.directions = set(vocab.get("directions", []))
-
-        # Patterns for token recognition
-        self.patterns = self.config.get("patterns", [])
 
         # Expectations for verb parsing
         self.expectations = self.config.get("expectations", {})
@@ -40,9 +38,6 @@ class Plugin:
 
         # Commands
         self.commands = self.config.get("commands", [])
-
-        # Service handlers (how this plugin provides services)
-        self.service_handlers = self.config.get("service_handlers", {})
 
         # Context requirements (e.g., requires TMUX env)
         self.context = self.config.get("context", {})

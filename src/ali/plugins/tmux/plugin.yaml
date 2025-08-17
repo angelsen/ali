@@ -13,30 +13,40 @@ provides:
     capabilities: [create, switch, close]
 context:
   requires_env: TMUX
+# Plugin grammar definitions - how to parse field types
+grammar:
+  target:
+    pattern: "^\\.[0-9]+$|^:[0-9]+$|^\\?$|^THIS$|^CURRENT$"
+    description: "Pane/window selectors (.1, :2, ?, THIS)"
+  direction:
+    values: [left, right, up, down, top, bottom]
+    transform: lower
+    description: "Split directions"
+  object:
+    values: [PANE, WINDOW, SESSION]
+    transform: upper
+    description: "Tmux objects"
+  clause:
+    values: [AS, WITH, IN]
+    transform: upper
+    description: "Command clauses"
+  panes:
+    pattern: "^[0-9]+$"
+    description: "Pane indices like 012"
+  fraction:
+    pattern: "^\\d+/\\d+$"
+    description: "Fractions like 1/2, 2/3"
+# Vocabulary for verb recognition
 vocabulary:
   verbs: [GO, DELETE, SPLIT, CREATE, WIDTH, HEIGHT]
-  objects: [PANE, WINDOW, SESSION]
-  directions: [left, right, up, down]
-  clauses: [AS] # For WIDTH 012 AS 1/2
-# Token patterns this plugin recognizes
-patterns:
-  - field: target
-    regex: "^\\."
-    description: "Pane selectors (.1, .left, .?)"
-  - field: target
-    regex: "^:"
-    description: "Window selectors (:1, :?)"
-  - field: target
-    keywords: ["?", "THIS", "CURRENT"]
-    description: "Special selectors"
-# Verb expectations
+# Verb expectations with defaults
 expectations:
   GO: [target]
   DELETE: ["object?", "target?"]
-  SPLIT: ["direction?"]
+  SPLIT: ["target?", "direction?=right"]
   CREATE: [object, "direction?"]
-  WIDTH: [panes, "clause?", "fraction?"] # WIDTH 012 or WIDTH 012 AS 1/2
-  HEIGHT: [panes, "clause?", "fraction?"] # HEIGHT 012 or HEIGHT 012 AS 1/2
+  WIDTH: [panes, "clause?", "fraction?"]
+  HEIGHT: [panes, "clause?", "fraction?"]
 # Safe inference rules
 inference:
   # GO ? → visual pane selector
@@ -56,20 +66,29 @@ commands:
     exec: "tmux display-panes"
   - match: {verb: GO, target: present}
     exec: "tmux select-pane -t {target}"
-  # Pane operations
-  - match: {verb: SPLIT, object: PANE, direction: left}
-    exec: "tmux split-window -h -b"
-  - match: {verb: SPLIT, object: PANE, direction: right}
-    exec: "tmux split-window -h"
+    
+  # Split pane using template composition
+  # This ONE pattern replaces ALL the direction-specific patterns!
+  - match: {verb: SPLIT, object: PANE, target: present, direction: present}
+    exec: "tmux select-pane -t {target} && {split_{direction}}"
+  
+  - match: {verb: SPLIT, object: PANE, direction: present}
+    exec: "{split_{direction}}"
+    
+  # Split with default direction (right)
   - match: {verb: SPLIT, object: PANE}
-    exec: "tmux split-window -h"
+    exec: "{split_right}"
+    
+  # Delete operations
   - match: {verb: DELETE, object: PANE, target: present}
     exec: "tmux kill-pane -t {target}"
+  - match: {verb: DELETE, object: WINDOW, target: present}
+    exec: "tmux kill-window -t {target}"
+    
   # Window operations
   - match: {verb: CREATE, object: WINDOW}
     exec: "tmux new-window"
-  - match: {verb: DELETE, object: WINDOW, target: present}
-    exec: "tmux kill-window -t {target}"
+    
   # Pane distribution commands
   - match: {verb: WIDTH, panes: present, fraction: present}
     exec: "ali --plugin-script tmux.distribute --dimension width --panes {panes} --fraction {fraction}"
@@ -79,11 +98,24 @@ commands:
     exec: "ali --plugin-script tmux.distribute --dimension height --panes {panes} --fraction {fraction}"
   - match: {verb: HEIGHT, panes: present}
     exec: "ali --plugin-script tmux.distribute --dimension height --panes {panes}"
-# Service templates for other plugins to use
-service_templates:
-  pane:
-    create: "tmux split-window {options}"
-    create_left: "tmux split-window -h -b -l {size}"
-    create_right: "tmux split-window -h -l {size}"
-    create_bottom: "tmux split-window -v -l {size}"
-    focus: "tmux select-pane -t {target}"
+# Service templates - simple named command fragments
+services:
+  # Directional splits
+  split_left: "tmux split-window -h -b"
+  split_right: "tmux split-window -h"
+  split_up: "tmux split-window -v -b"
+  split_down: "tmux split-window -v"
+  split_top: "tmux split-window -v -b"
+  split_bottom: "tmux split-window -v"
+  
+  # Send commands to existing panes
+  send_to: "tmux send-keys -t"
+  
+  # Window and session templates  
+  new_window: "tmux new-window"
+  new_session: "tmux new-session -d"
+  
+  # Selection/focus templates
+  select_pane: "tmux select-pane -t"
+  select_window: "tmux select-window -t"
+  focus: "tmux select-pane -t"

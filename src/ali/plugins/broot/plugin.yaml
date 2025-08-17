@@ -8,51 +8,95 @@ provides:
     returns: filepath
 requires:
   - pane # Needs pane to display interface
+# Plugin grammar definitions
+grammar:
+  path:
+    type: string
+    description: "Directory path to browse"
+  target:
+    pattern: "^[.:]\\w*$|^\\?$"
+    description: "Pane/window target"
+  direction:
+    values: [left, right, up, down, top, bottom]
+    transform: lower
+    description: "Split direction for browser"
+# Vocabulary for verb recognition
 vocabulary:
   verbs: [BROWSE, BR]
-# Token patterns this plugin recognizes
-patterns:
-  - field: selector
-    regex: "^@"
-    description: "File selector request (@?)"
-# Verb expectations
+# Verb expectations with spatial support
 expectations:
-  BROWSE: ["path?"]
-  BR: ["path?"]
+  BROWSE: ["path?", "target?", "direction?=left"]
+  BR: ["path?", "target?", "direction?=left"]
 commands:
-  # Open interactive browser
-  - match: {verb: BROWSE}
-    exec: "br"
-    needs: pane
-    pane_hints: {position: left, size: "40%"}
+  # === BROWSE from specific pane - ONE pattern for ALL directions! ===
+  - match: {verb: BROWSE, path: present, target: present, direction: present}
+    exec: "{focus} {target} && {split_{direction}} 'br {path}'"
+    
+  - match: {verb: BROWSE, target: present, direction: present}
+    exec: "{focus} {target} && {split_{direction}} 'br'"
+    
+  # === BROWSE in existing pane ===
+  - match: {verb: BROWSE, path: present, target: present}
+    exec: "{send_to} {target} 'br {path}' Enter"
+  - match: {verb: BROWSE, target: present}
+    exec: "{send_to} {target} 'br' Enter"
+  
+  # === BROWSE with direction - ONE pattern instead of SIX! ===
+  - match: {verb: BROWSE, path: present, direction: present}
+    exec: "{split_{direction}} 'br {path}'"
+    
+  - match: {verb: BROWSE, direction: present}
+    exec: "{split_{direction}} 'br'"
+    
+  # === BROWSE with defaults (left split) ===
   - match: {verb: BROWSE, path: present}
-    exec: "br {path}"
-    needs: pane
-    pane_hints: {position: left, size: "40%"}
-# Service handlers - how broot provides file selection
-service_handlers:
-  file_selector:
-    # Interactive selection mode
-    interactive:
-      exec: "br --cmd ':print_path'"
-      needs: pane
-      pane_hints: {position: left, size: "40%"}
-      returns: stdout # Returns selected path on stdout
-    # One-shot selection for specific actions
-    select_and_edit:
-      exec: "br --conf ~/ali.toml --cmd ':edit'"
-      needs: pane
-      pane_hints: {position: left, size: "40%"}
+    exec: "{split_left} 'br {path}'"
+  - match: {verb: BROWSE}
+    exec: "{split_left} 'br'"
+# Service templates - command fragments for file selection
+services:
+  # File selection modes
+  file_select: "br --cmd ':print_path'"
+  dir_select: "br --cmd ':print_path' --only-dirs"
+  
+  # Browse modes
+  browse: "br"
+  browse_hidden: "br --hidden"
 # Broot configuration hints for integration
 integration:
   verbs_config: |-
     # In broot's verbs.hjson, users can add:
     [[verbs]]
-    key = "alt-e"
-    external = "ali 'EDIT {file} .right'"
+    invocation = "edit {args}"
+    external = "ali 'EDIT {file} {args}'"
     leave_broot = false
-
+    
     [[verbs]]
-    key = "alt-d"
-    external = "ali 'DELETE {file}'"
+    key = "ctrl-1"
+    external = "ali 'EDIT {file} .1'"
+    leave_broot = false
+    
+    [[verbs]]
+    key = "ctrl-2"
+    external = "ali 'EDIT {file} .2'"
+    leave_broot = false
+    
+    [[verbs]]
+    key = "ctrl-h"
+    external = "ali 'EDIT {file} left'"
+    leave_broot = false
+    
+    [[verbs]]
+    key = "ctrl-l"
+    external = "ali 'EDIT {file} right'"
+    leave_broot = false
+    
+    [[verbs]]
+    key = "ctrl-j"
+    external = "ali 'EDIT {file} down'"
+    leave_broot = false
+    
+    [[verbs]]
+    key = "ctrl-k"
+    external = "ali 'EDIT {file} up'"
     leave_broot = false

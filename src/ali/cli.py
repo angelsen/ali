@@ -71,6 +71,12 @@ def main():
     )
 
     parser.add_argument(
+        "--list-grammar",
+        action="store_true",
+        help="List grammar definitions for all plugins",
+    )
+
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would be executed without running",
@@ -106,6 +112,27 @@ def main():
         for service, providers in sorted(registry.providers.items()):
             provider_names = [p.name for p in providers]
             print(f"  {service:20} provided by: {', '.join(provider_names)}")
+        sys.exit(EXIT_SUCCESS)
+
+    # Handle --list-grammar
+    if args.list_grammar:
+        print("Grammar definitions by plugin:")
+        for plugin in registry.plugins:
+            if plugin.grammar:
+                print(f"\n{plugin.name}:")
+                for field, grammar in plugin.grammar.items():
+                    if "pattern" in grammar:
+                        pattern = grammar["pattern"]
+                        if len(pattern) > 40:
+                            pattern = pattern[:40] + "..."
+                        print(f"  {field:15} pattern: {pattern}")
+                    elif "values" in grammar:
+                        values_str = ", ".join(grammar["values"][:3])
+                        if len(grammar["values"]) > 3:
+                            values_str += "..."
+                        print(f"  {field:15} values: [{values_str}]")
+                    elif "type" in grammar:
+                        print(f"  {field:15} type: {grammar['type']}")
         sys.exit(EXIT_SUCCESS)
 
     # Handle --list-verbs

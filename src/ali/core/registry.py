@@ -60,54 +60,6 @@ class ServiceRegistry:
 
         print(f"Registered: {plugin}")
 
-    def get_provider(self, service: str) -> Optional[Plugin]:
-        """Get first plugin that provides a service."""
-        providers = self.providers.get(service, [])
-        return providers[0] if providers else None
-
-    def get_all_providers(self, service: str) -> List[Plugin]:
-        """Get all plugins that provide a service."""
-        return self.providers.get(service, [])
-
     def get_plugin_for_verb(self, verb: str) -> Optional[Plugin]:
         """Get plugin that handles a verb."""
         return self.verb_index.get(verb.upper())
-
-    def check_dependencies(self) -> List[str]:
-        """Check for missing dependencies, return warnings."""
-        warnings = []
-
-        for plugin in self.plugins:
-            for required in plugin.requires:
-                if required not in self.providers:
-                    warnings.append(
-                        f"{plugin.name} requires '{required}' but no plugin provides it"
-                    )
-
-        return warnings
-
-    def get_service_chain(self, plugin: Plugin, command: Dict) -> List[str]:
-        """Get the chain of services needed for a command.
-
-        Returns list of services in dependency order.
-        """
-        chain = []
-        needs = command.get("needs", [])
-
-        # Normalize to list
-        if isinstance(needs, str):
-            needs = [needs]
-
-        # For each needed service, check if provider also needs services
-        for service in needs:
-            provider = self.get_provider(service)
-            if provider and provider.requires:
-                # Recursively get provider's requirements
-                for required in provider.requires:
-                    if required not in chain:
-                        chain.append(required)
-
-            if service not in chain:
-                chain.append(service)
-
-        return chain
