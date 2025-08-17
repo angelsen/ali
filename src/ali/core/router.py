@@ -254,6 +254,10 @@ class Router:
             elif expected is None or expected == "null":
                 if actual is not None:
                     return False
+            elif isinstance(expected, list):
+                # List matching - actual must be in the list
+                if actual not in expected:
+                    return False
             elif isinstance(expected, str) and expected.startswith("^"):
                 # Regex pattern
                 if actual is None or not re.match(expected, str(actual)):

@@ -28,40 +28,32 @@ expectations:
   ED: [file, "target?", "direction?=right"]
   VIEW: [file, "target?", "direction?=right"]
 commands:
-  # === EDIT with file selector (@?) - template composition! ===
-  - match: {verb: EDIT, file: "@?", direction: present}
+  # === EDIT/ED with file selector (@?) - template composition! ===
+  - match: {verb: [EDIT, ED], file: "@?", direction: present}
     exec: "{split_{direction}} 'micro $({file_select})'"
-  - match: {verb: EDIT, file: "@?"}
+  - match: {verb: [EDIT, ED], file: "@?"}
     exec: "{split_right} 'micro $({file_select})'"
-  
-  # === EDIT from specific pane - ONE pattern for ALL directions! ===
-  - match: {verb: EDIT, file: present, target: present, direction: present}
+  # === EDIT/ED from specific pane - ONE pattern for ALL directions! ===
+  - match: {verb: [EDIT, ED], file: present, target: present, direction: present}
     exec: "{focus} {target} && {split_{direction}} 'micro {file}'"
-  
-  # === EDIT in existing pane ===
-  - match: {verb: EDIT, file: present, target: present}
+  # === EDIT/ED in existing pane ===
+  - match: {verb: [EDIT, ED], file: present, target: present}
     exec: "{send_to} {target} 'micro {file}' Enter"
-  
-  # === EDIT with direction - ONE pattern instead of SIX! ===
-  - match: {verb: EDIT, file: present, direction: present}
+  # === EDIT/ED with direction - ONE pattern instead of SIX! ===
+  - match: {verb: [EDIT, ED], file: present, direction: present}
     exec: "{split_{direction}} 'micro {file}'"
-  
-  # === EDIT with default (split right) ===
-  - match: {verb: EDIT, file: present}
+  # === EDIT/ED with default (split right) ===
+  - match: {verb: [EDIT, ED], file: present}
     exec: "{split_right} 'micro {file}'"
-  
   # === VIEW from specific pane - ONE pattern! ===
   - match: {verb: VIEW, file: present, target: present, direction: present}
     exec: "{focus} {target} && {split_{direction}} 'micro -readonly {file}'"
-    
   # === VIEW in existing pane ===
   - match: {verb: VIEW, file: present, target: present}
     exec: "{send_to} {target} 'micro -readonly {file}' Enter"
-  
   # === VIEW with direction - ONE pattern! ===
   - match: {verb: VIEW, file: present, direction: present}
     exec: "{split_{direction}} 'micro -readonly {file}'"
-    
   # === VIEW with default ===
   - match: {verb: VIEW, file: present}
     exec: "{split_right} 'micro -readonly {file}'"

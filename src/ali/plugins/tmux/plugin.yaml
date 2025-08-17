@@ -16,8 +16,8 @@ context:
 # Plugin grammar definitions - how to parse field types
 grammar:
   target:
-    pattern: "^\\.[0-9]+$|^:[0-9]+$|^\\?$|^THIS$|^CURRENT$"
-    description: "Pane/window selectors (.1, :2, ?, THIS)"
+    pattern: "^\\.[0-9]+$|^\\.\\?$|^\\.THIS$|^\\.CURRENT$|^:[0-9]+$|^:\\?$|^:THIS$|^:CURRENT$|^\\?$|^THIS$|^CURRENT$"
+    description: "Pane/window selectors (.1, .?, .THIS, :2, :?, :THIS, ?, THIS)"
   direction:
     values: [left, right, up, down, top, bottom]
     transform: lower
@@ -38,11 +38,11 @@ grammar:
     description: "Fractions like 1/2, 2/3"
 # Vocabulary for verb recognition
 vocabulary:
-  verbs: [GO, DELETE, SPLIT, CREATE, WIDTH, HEIGHT]
+  verbs: [GO, KILL, SPLIT, CREATE, WIDTH, HEIGHT]
 # Verb expectations with defaults
 expectations:
   GO: [target]
-  DELETE: ["object?", "target?"]
+  KILL: ["object?", "target?"]
   SPLIT: ["target?", "direction?=right"]
   CREATE: [object, "direction?"]
   WIDTH: [panes, "clause?", "fraction?"]
@@ -53,42 +53,49 @@ inference:
   - when: {verb: GO, target: "?"}
     transform: {target: ".?"}
   # Target prefix implies object
-  - when: {verb: DELETE, target: "^\\.", object: null}
+  - when: {verb: KILL, target: "^\\.", object: null}
     set: {object: PANE}
-  - when: {verb: DELETE, target: "^:", object: null}
+  - when: {verb: KILL, target: "^:", object: null}
     set: {object: WINDOW}
   # SPLIT always means pane
   - when: {verb: SPLIT}
     set: {object: PANE}
 commands:
-  # Navigation
+  # Navigation - visual selectors first, then specific targets
   - match: {verb: GO, target: ".?"}
-    exec: "tmux display-panes"
+    exec: "{display_panes}"
+  - match: {verb: GO, target: ":?"}
+    exec: "{choose_window}"
+  - match: {verb: GO, target: "?"}
+    exec: "{display_panes}"
   - match: {verb: GO, target: present}
-    exec: "tmux select-pane -t {target}"
-    
+    exec: "{select_pane} {target}"
   # Split pane using template composition
   # This ONE pattern replaces ALL the direction-specific patterns!
   - match: {verb: SPLIT, object: PANE, target: present, direction: present}
     exec: "tmux select-pane -t {target} && {split_{direction}}"
-  
   - match: {verb: SPLIT, object: PANE, direction: present}
     exec: "{split_{direction}}"
-    
   # Split with default direction (right)
   - match: {verb: SPLIT, object: PANE}
     exec: "{split_right}"
-    
-  # Delete operations
-  - match: {verb: DELETE, object: PANE, target: present}
+  # Kill operations
+  # Special cases for THIS/CURRENT (no -t needed)
+  - match: {verb: KILL, object: PANE, target: [".THIS", ".CURRENT"]}
+    exec: "tmux kill-pane"
+  - match: {verb: KILL, object: WINDOW, target: [":THIS", ":CURRENT"]}
+    exec: "tmux kill-window"
+  # Generic numbered targets
+  - match: {verb: KILL, object: PANE, target: present}
     exec: "tmux kill-pane -t {target}"
-  - match: {verb: DELETE, object: WINDOW, target: present}
+  - match: {verb: KILL, object: WINDOW, target: present}
     exec: "tmux kill-window -t {target}"
-    
+  # Implicit THIS/CURRENT without object
+  - match: {verb: KILL, target: ["THIS", "CURRENT"]}
+    exec: "tmux kill-pane"
   # Window operations
   - match: {verb: CREATE, object: WINDOW}
     exec: "tmux new-window"
-    
   # Pane distribution commands
   - match: {verb: WIDTH, panes: present, fraction: present}
     exec: "ali --plugin-script tmux.distribute --dimension width --panes {panes} --fraction {fraction}"
@@ -107,15 +114,14 @@ services:
   split_down: "tmux split-window -v"
   split_top: "tmux split-window -v -b"
   split_bottom: "tmux split-window -v"
-  
   # Send commands to existing panes
   send_to: "tmux send-keys -t"
-  
   # Window and session templates  
   new_window: "tmux new-window"
   new_session: "tmux new-session -d"
-  
-  # Selection/focus templates
+  # Navigation templates
+  display_panes: "tmux display-panes"
+  choose_window: "tmux choose-window"
   select_pane: "tmux select-pane -t"
   select_window: "tmux select-window -t"
   focus: "tmux select-pane -t"
