@@ -42,7 +42,7 @@ grammar:
   direction:
     values: [left, right, up, down, pop]
     transform: lower
-    description: "Direction for splits, joins, and moves (pop = popup)"
+    description: "Direction for operations (pop = popup)"
   object:
     values: [PANE, WINDOW, SESSION]
     transform: upper
@@ -93,6 +93,8 @@ commands:
     exec: "{choose_window}"
   - match: {verb: GO, target: present}
     exec: "{select_pane} {target}"
+  - match: {verb: SPLIT, object: PANE, direction: pop}
+    exec: "{split_popup} 'bash'"
   - match: {verb: SPLIT, object: PANE}
     exec: "{?target:{select_pane} {target} && }{split}"
   - match: {verb: KILL, object: PANE}

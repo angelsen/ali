@@ -38,11 +38,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="ALI - Action Language Interpreter",
         epilog="Examples:\n"
-        "  ali 'GO .2'           # Go to pane 2\n"
-        "  ali 'SPLIT left'      # Split pane left\n"
-        "  ali 'WIDTH 012'       # Distribute panes evenly\n"
-        "  ali 'WIDTH 012 AS 1/2'# Make panes half window width\n"
-        "  ali 'EDIT @?'         # Edit with file selector\n",
+        "  ali GO .2             # Go to pane 2\n"
+        "  ali SPLIT pop         # Open popup shell\n"
+        "  ali EDIT file.txt pop # Edit in popup\n"
+        "  ali WIDTH 012         # Distribute panes evenly\n"
+        "  ali ECHO ed?          # Edit and pipe output\n",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 

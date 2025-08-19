@@ -5,7 +5,7 @@ description = "Action Language Interpreter - One command for every tool"
 readme = "README.md"
 authors = [{ name = "Fredrik Angelsen", email = "fredrikangelsen@gmail.com" }]
 requires-python = ">=3.12"
-dependencies = ["lark>=1.2.2", "pyyaml>=6.0.2", "tmux-popup>=0.2.0"]
+dependencies = ["pyyaml>=6.0.2"]
 
 [project.scripts]
 ali = "ali.cli:main"
@@ -16,10 +16,3 @@ build-backend = "uv_build"
 
 [tool.basedpyright]
 typeCheckingMode = "standard"
-
-[tool.ruff.lint]
-# Ignore star import warnings in language implementation files
-extend-ignore = [
-    "F403", # Star imports
-    "F405", # Star import usage
-]
