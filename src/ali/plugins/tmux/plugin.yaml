@@ -1,3 +1,4 @@
+# Metadata
 name: tmux
 version: 2.0
 description: Terminal multiplexer - pane and window management
@@ -11,40 +12,58 @@ provides:
   session:
     type: service
     capabilities: [create, switch, close]
+  modal:
+    type: service
+    capabilities: [popup]
+    description: "Modal popup display"
+  clipboard:
+    type: service
+    capabilities: [load, save, paste]
+    description: "Tmux paste buffer"
+# Context
 context:
   requires_env: TMUX
-# Metadata for logging and environment capture
+# Metadata
 metadata:
   environment:
-    requires: ["TMUX"] # Required for plugin to work
-    captures: ["TMUX_PANE", "TMUX_WINDOW", "TMUX_SESSION"] # Passed via shell
-# Plugin grammar definitions - how to parse field types
+    requires: ["TMUX"]
+    captures: ["TMUX_PANE", "TMUX_WINDOW", "TMUX_SESSION"]
+# Grammar
 grammar:
   target:
-    pattern: "^\\.[0-9]+$|^\\.\\?$|^\\.THIS$|^\\.CURRENT$|^:[0-9]+$|^:\\?$|^:THIS$|^:CURRENT$|^\\?$|^THIS$|^CURRENT$"
-    description: "Pane/window selectors (.1, .?, .THIS, :2, :?, :THIS, ?, THIS)"
+    pattern: "^\\.[0-9]+$|^\\.\\?$|^\\.THIS$|^\\.CURRENT$|^:[0-9]+$|^:[0-9]+\\.[0-9]+$|^:\\?$|^:THIS$|^:CURRENT$|^\\?$|^THIS$|^CURRENT$"
+    description: "Pane/window selectors (.1, .?, .THIS, :2, :2.1, :?, :THIS, ?, THIS)"
+  source:
+    pattern: "^\\.[0-9]+$|^\\.\\?$|^\\.THIS$|^\\.CURRENT$|^:[0-9]+$|^:[0-9]+\\.[0-9]+$|^:\\?$|^:THIS$|^:CURRENT$|^\\?$|^THIS$|^CURRENT$"
+    description: "Source pane/window for operations"
+  dest:
+    pattern: "^\\.[0-9]+$|^\\.\\?$|^\\.THIS$|^\\.CURRENT$|^:[0-9]+$|^:[0-9]+\\.[0-9]+$|^:\\?$|^:THIS$|^:CURRENT$|^\\?$|^THIS$|^CURRENT$"
+    description: "Destination pane/window for operations"
   direction:
-    values: [left, right, up, down, top, bottom]
+    values: [left, right, up, down, pop]
     transform: lower
-    description: "Split directions"
+    description: "Direction for splits, joins, and moves (pop = popup)"
   object:
     values: [PANE, WINDOW, SESSION]
     transform: upper
-    description: "Tmux objects"
+    description: "Tmux object types"
   clause:
     values: [AS, WITH, IN]
     transform: upper
-    description: "Command clauses"
+    description: "Command modifiers"
   panes:
     pattern: "^[0-9]+$"
-    description: "Pane indices like 012"
+    description: "Pane indices (e.g., 012 for panes 0, 1, 2)"
   fraction:
     pattern: "^\\d+/\\d+$"
-    description: "Fractions like 1/2, 2/3"
-# Vocabulary for verb recognition
+    description: "Size fractions (e.g., 1/2, 2/3)"
+  stream:
+    type: string
+    description: "Any text, pane reference, or stream selector"
+# Vocabulary
 vocabulary:
-  verbs: [GO, KILL, SPLIT, CREATE, WIDTH, HEIGHT]
-# Verb expectations with defaults
+  verbs: [GO, KILL, SPLIT, CREATE, WIDTH, HEIGHT, JOIN, SWAP, COPY, ECHO]
+# Expectations
 expectations:
   GO: [target]
   KILL: ["object?", "target?"]
@@ -52,81 +71,80 @@ expectations:
   CREATE: [object, "direction?"]
   WIDTH: [panes, "clause?", "fraction?"]
   HEIGHT: [panes, "clause?", "fraction?"]
-# Safe inference rules
+  JOIN: [source, "dest?", "direction?=right"]
+  SWAP: [source, "dest?"]
+  COPY: [stream]
+  ECHO: [stream, "target?"]
+# Inference
 inference:
-  # GO ? → visual pane selector
   - when: {verb: GO, target: "?"}
     transform: {target: ".?"}
-  # Target prefix implies object
   - when: {verb: KILL, target: "^\\.", object: null}
     set: {object: PANE}
   - when: {verb: KILL, target: "^:", object: null}
     set: {object: WINDOW}
-  # SPLIT always means pane
   - when: {verb: SPLIT}
     set: {object: PANE}
+# Commands
 commands:
-  # Navigation - visual selectors first, then specific targets
-  - match: {verb: GO, target: ".?"}
+  - match: {verb: GO, target: [".?", "?"]}
     exec: "{display_panes}"
   - match: {verb: GO, target: ":?"}
     exec: "{choose_window}"
-  - match: {verb: GO, target: "?"}
-    exec: "{display_panes}"
   - match: {verb: GO, target: present}
     exec: "{select_pane} {target}"
-  # Split pane using template composition
-  # This ONE pattern replaces ALL the direction-specific patterns!
-  - match: {verb: SPLIT, object: PANE, target: present, direction: present}
-    exec: "tmux select-pane -t {target} && {split_{direction}}"
-  - match: {verb: SPLIT, object: PANE, direction: present}
-    exec: "{split_{direction}}"
-  # Split with default direction (right)
   - match: {verb: SPLIT, object: PANE}
-    exec: "{split_right}"
-  # Kill operations
-  # Special cases for THIS/CURRENT (no -t needed)
-  - match: {verb: KILL, object: PANE, target: [".THIS", ".CURRENT"]}
-    exec: "tmux kill-pane"
-  - match: {verb: KILL, object: WINDOW, target: [":THIS", ":CURRENT"]}
-    exec: "tmux kill-window"
-  # Generic numbered targets
-  - match: {verb: KILL, object: PANE, target: present}
-    exec: "tmux kill-pane -t {target}"
-  - match: {verb: KILL, object: WINDOW, target: present}
-    exec: "tmux kill-window -t {target}"
-  # Implicit THIS/CURRENT without object
-  - match: {verb: KILL, target: ["THIS", "CURRENT"]}
-    exec: "tmux kill-pane"
-  # Window operations
+    exec: "{?target:{select_pane} {target} && }{split}"
+  - match: {verb: KILL, object: PANE}
+    exec: "{kill_pane}"
+  - match: {verb: KILL, object: WINDOW}
+    exec: "{kill_window}"
+  - match: {verb: KILL}
+    exec: "{kill_pane}"
   - match: {verb: CREATE, object: WINDOW}
-    exec: "tmux new-window"
-  # Pane distribution commands
-  - match: {verb: WIDTH, panes: present, fraction: present}
-    exec: "ali --plugin-script tmux.distribute --dimension width --panes {panes} --fraction {fraction}"
-  - match: {verb: WIDTH, panes: present}
-    exec: "ali --plugin-script tmux.distribute --dimension width --panes {panes}"
-  - match: {verb: HEIGHT, panes: present, fraction: present}
-    exec: "ali --plugin-script tmux.distribute --dimension height --panes {panes} --fraction {fraction}"
-  - match: {verb: HEIGHT, panes: present}
-    exec: "ali --plugin-script tmux.distribute --dimension height --panes {panes}"
-# Service templates - simple named command fragments
+    exec: "{new_window}"
+  - match: {verb: [WIDTH, HEIGHT], panes: present}
+    exec: "{_distribute_script} --dimension {verb[WIDTH:width,HEIGHT:height]} --panes {panes}{?fraction: --fraction {fraction}}"
+  - match: {verb: JOIN, source: present}
+    exec: "{join} {direction[left:-h -b,right:-h,up:-v -b,down:-v,_:-h]} -s {source}{?dest: -t {dest}}"
+  - match: {verb: SWAP, source: present}
+    exec: "{swap} -s {source}{?dest: -t {dest}}"
+  - match: {verb: COPY, stream_exec: present}
+    exec: "{modal_popup} '{stream_exec} | tmux load-buffer -w'"
+  - match: {verb: ECHO, stream_exec: present}
+    exec: "{modal_popup} '{stream_exec} | xargs -I {{{}}} tmux send-keys{?target: -t {target}} {{{}}}'"
+# Selectors
+selectors:
+  .?:
+    type: action
+    exec: "{display_panes}"
+  :?:
+    type: action
+    exec: "{choose_window}"
+# Services
 services:
-  # Directional splits
-  split_left: "tmux split-window -h -b"
-  split_right: "tmux split-window -h"
-  split_up: "tmux split-window -v -b"
-  split_down: "tmux split-window -v"
-  split_top: "tmux split-window -v -b"
-  split_bottom: "tmux split-window -v"
-  # Send commands to existing panes
-  send_to: "tmux send-keys -t"
-  # Window and session templates  
-  new_window: "tmux new-window"
-  new_session: "tmux new-session -d"
-  # Navigation templates
+  split: "tmux split-window{?target: -t {target}} {direction[left:-h -b,right:-h,up:-v -b,down:-v,_:-h]}"
+  split_popup: "tmux display-popup -w 80% -h 80% -d \"$PWD\" -E"
   display_panes: "tmux display-panes"
   choose_window: "tmux choose-window"
   select_pane: "tmux select-pane -t"
-  select_window: "tmux select-window -t"
-  focus: "tmux select-pane -t"
+  new_window: "tmux new-window"
+  kill_pane: "tmux kill-pane{?target: -t {target}}"
+  kill_window: "tmux kill-window{?target: -t {target}}"
+  join: "tmux join-pane"
+  swap: "tmux swap-pane"
+  send_to: "tmux send-keys{?target: -t {target}}"
+  modal_popup: "tmux display-popup -w 80% -h 80% -d \"$PWD\" -E"
+  clipboard_load: "tmux load-buffer -w"
+  _distribute_script: "python3 {plugin_dir}/scripts/distribute.py"
+# Integration
+integration:
+  files:
+    - source: "tmux.conf.ali"
+      target: "~/.config/ali/tmux.conf.ali"
+  instructions: |
+    Add to ~/.tmux.conf:
+      source-file ~/.config/ali/tmux.conf.ali
+    Then reload: tmux source ~/.tmux.conf
+  check_command: "grep -q 'tmux.conf.ali' ~/.tmux.conf"
+  usage: "Press C-b a to open ALI prompt"

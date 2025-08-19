@@ -1,0 +1,36 @@
+# ALI Integration for broot
+# Installation: Add to ~/.config/broot/conf.hjson:
+#   imports: ["~/.config/ali/broot.hjson"]
+# Or copy this content to ~/.config/broot/verbs.hjson
+
+verbs: [
+    # Edit with ALI
+    # Usage: :ali_edit <target/direction> or :ae <target/direction>
+    # Examples:
+    #   :ae right     → Open file in right pane
+    #   :ae left      → Open file in left pane
+    #   :ae .0        → Open from pane 0
+    #   :ae .0 left   → Open from pane 0 to the left
+    {
+        invocation: "ali_edit {target_direction}"
+        shortcut: "ae"
+        external: "sh -c \"ali EDIT '{file}' {target_direction} | sh\""
+        leave_broot: false
+        apply_to: file
+    }
+    
+    # Browse with ALI
+    # Usage: :ali_browse <args> or :ab <args>
+    # Examples:
+    #   :ab left           → Open broot in left pane
+    #   :ab .0             → Open from pane 0
+    #   :ab .0 left        → Open from pane 0 to the left
+    #   :ab /path .0 left  → Open /path from pane 0 to the left
+    {
+        invocation: "ali_browse {args}"
+        shortcut: "ab"
+        external: "sh -c \"ali BR '{directory}' {args} | sh\""
+        leave_broot: false
+        apply_to: any
+    }
+]

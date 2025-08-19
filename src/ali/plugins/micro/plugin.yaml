@@ -1,3 +1,4 @@
+# Metadata
 name: micro
 version: 2.0
 description: Modern terminal text editor
@@ -6,63 +7,44 @@ provides:
     type: service
     capabilities: [edit, view, create]
 requires:
-  - pane # Needs pane to display editor
-# Metadata for logging and environment capture
+  - pane
+# Context
+context: {}
+# Metadata
 metadata:
   environment:
-    optional: ["EDITOR", "VISUAL"] # Check if micro is default editor
-# Plugin grammar definitions
+    optional: ["EDITOR", "VISUAL"]
+# Grammar
 grammar:
   file:
     type: string
-    description: "File path or @? for selector"
-  target:
-    pattern: "^[.:]\\w*$|^\\?$"
-    description: "Pane/window target"
+    description: "File path to edit"
   direction:
-    values: [left, right, up, down, top, bottom]
+    values: [left, right, up, down, pop]
     transform: lower
-    description: "Split direction for editor"
-# Vocabulary for verb recognition
+    description: "Split direction for editor (pop = popup)"
+# Vocabulary
 vocabulary:
   verbs: [EDIT, ED, VIEW]
-# Verb expectations with spatial support
+# Expectations
 expectations:
   EDIT: [file, "target?", "direction?=right"]
   ED: [file, "target?", "direction?=right"]
   VIEW: [file, "target?", "direction?=right"]
+# Commands
 commands:
-  # === EDIT/ED with file browser - open micro without file ===
-  - match: {verb: [EDIT, ED], file: "@?", direction: present}
-    exec: "{split_{direction}} 'micro'" # Micro has built-in file browser (Ctrl+E)
-  - match: {verb: [EDIT, ED], file: "@?"}
-    exec: "{split_right} 'micro'" # Micro has built-in file browser (Ctrl+E)
-  # === EDIT/ED from specific pane - ONE pattern for ALL directions! ===
-  - match: {verb: [EDIT, ED], file: present, target: present, direction: present}
-    exec: "{focus} {target} && {split_{direction}} 'micro {file}'"
-  # === EDIT/ED in existing pane ===
-  - match: {verb: [EDIT, ED], file: present, target: present}
-    exec: "{send_to} {target} 'micro {file}' Enter"
-  # === EDIT/ED with direction - ONE pattern instead of SIX! ===
-  - match: {verb: [EDIT, ED], file: present, direction: present}
-    exec: "{split_{direction}} 'micro {file}'"
-  # === EDIT/ED with default (split right) ===
+  - match: {verb: [EDIT, ED], file: present, direction: pop}
+    exec: "{?file_exec:{file_exec} | xargs -I {} }{split_popup} 'micro{?file_exec: {}: {file}}'"
   - match: {verb: [EDIT, ED], file: present}
-    exec: "{split_right} 'micro {file}'"
-  # === VIEW from specific pane - ONE pattern! ===
-  - match: {verb: VIEW, file: present, target: present, direction: present}
-    exec: "{focus} {target} && {split_{direction}} 'micro -readonly {file}'"
-  # === VIEW in existing pane ===
-  - match: {verb: VIEW, file: present, target: present}
-    exec: "{send_to} {target} 'micro -readonly {file}' Enter"
-  # === VIEW with direction - ONE pattern! ===
-  - match: {verb: VIEW, file: present, direction: present}
-    exec: "{split_{direction}} 'micro -readonly {file}'"
-  # === VIEW with default ===
+    exec: "{?file_exec:{file_exec} | xargs -I {} }{split} 'micro{?file_exec: {}: {file}}'"
+  - match: {verb: VIEW, file: present, direction: pop}
+    exec: "{?file_exec:{file_exec} | xargs -I {} }{split_popup} 'micro -readonly{?file_exec: {}: {file}}'"
   - match: {verb: VIEW, file: present}
-    exec: "{split_right} 'micro -readonly {file}'"
-# Service templates - editor command fragments
-services:
-  edit: "micro"
-  edit_readonly: "micro -readonly"
-  edit_config: "micro ~/.config/micro/settings.json"
+    exec: "{?file_exec:{file_exec} | xargs -I {} }{split} 'micro -readonly{?file_exec: {}: {file}}'"
+# Selectors
+selectors:
+  ed?:
+    type: stream
+    exec: "micro"
+# Services
+services: {}

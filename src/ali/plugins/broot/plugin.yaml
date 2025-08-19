@@ -1,3 +1,4 @@
+# Metadata
 name: broot
 version: 2.0
 description: Interactive file browser and selector
@@ -7,57 +8,51 @@ provides:
     capabilities: [select_file, select_directory, browse]
     returns: filepath
 requires:
-  - pane # Needs pane to display interface
-# Metadata for logging and environment capture  
+  - pane
+  - modal
+  - clipboard
+# Context
+context: {}
+# Metadata
 metadata:
   environment:
-    optional: ["BROOT_CMD_SEPARATOR"] # Used for command chaining
-# Plugin grammar definitions
+    optional: ["BROOT_CMD_SEPARATOR"]
+# Grammar
 grammar:
-  path:
-    type: string
-    description: "Directory path to browse"
-  target:
-    pattern: "^[.:]\\w*$|^\\?$"
-    description: "Pane/window target"
   direction:
-    values: [left, right, up, down, top, bottom]
+    values: [left, right, up, down, pop]
     transform: lower
-    description: "Split direction for browser"
-# Vocabulary for verb recognition
+    description: "Split direction for browser (pop = popup)"
+# Vocabulary
 vocabulary:
   verbs: [BROWSE, BR]
-# Verb expectations with spatial support
+# Expectations
 expectations:
-  BROWSE: ["path?", "target?", "direction?=left"]
-  BR: ["path?", "target?", "direction?=left"]
+  BROWSE: ["target?", "direction?=left"]
+  BR: ["target?", "direction?=left"]
+# Commands
 commands:
-  # === BROWSE/BR from specific pane - ONE pattern for ALL directions! ===
-  - match: {verb: [BROWSE, BR], path: present, target: present, direction: present}
-    exec: "{focus} {target} && {split_{direction}} 'broot {path}'"
-  - match: {verb: [BROWSE, BR], target: present, direction: present}
-    exec: "{focus} {target} && {split_{direction}} 'broot'"
-  # === BROWSE/BR in existing pane ===
-  - match: {verb: [BROWSE, BR], path: present, target: present}
-    exec: "{send_to} {target} 'broot {path}' Enter"
-  - match: {verb: [BROWSE, BR], target: present}
-    exec: "{send_to} {target} 'broot' Enter"
-  # === BROWSE/BR with direction - ONE pattern instead of SIX! ===
-  - match: {verb: [BROWSE, BR], path: present, direction: present}
-    exec: "{split_{direction}} 'broot {path}'"
-  - match: {verb: [BROWSE, BR], direction: present}
-    exec: "{split_{direction}} 'broot'"
-  # === BROWSE/BR with defaults (left split) ===
-  - match: {verb: [BROWSE, BR], path: present}
-    exec: "{split_left} 'broot {path}'"
+  - match: {verb: [BROWSE, BR], direction: pop}
+    exec: "{split_popup} 'broot'"
   - match: {verb: [BROWSE, BR]}
-    exec: "{split_left} 'broot'"
-# Service templates - command fragments  
-services:
-  # Browse modes (broot handles selection internally)
-  browse: "broot"
-  browse_hidden: "broot --hidden"
-  browse_dirs_only: "broot --only-dirs"
-# Broot configuration hints for integration
+    exec: "{split} 'broot'"
+# Selectors
+selectors:
+  br?:
+    type: stream
+    exec: "broot"
+# Services
+services: {}
+# Integration
 integration:
-  setup_instructions: "To integrate with ALI, add to ~/.config/broot/verbs.hjson:\n\n{\n  invocation: \"edit\"\n  key: \"enter\"\n  external: \"TMUX_PANE={pane_id} ali 'EDIT {file}'\"\n  leave_broot: true\n}\n{\n  key: \"alt-h\"\n  external: \"TMUX_PANE={pane_id} ali 'EDIT {file} left'\"\n  leave_broot: true\n}\n{\n  key: \"alt-l\"\n  external: \"TMUX_PANE={pane_id} ali 'EDIT {file} right'\"\n  leave_broot: true\n}\n{\n  key: \"alt-j\"  \n  external: \"TMUX_PANE={pane_id} ali 'EDIT {file} down'\"\n  leave_broot: true\n}\n{\n  key: \"alt-k\"\n  external: \"TMUX_PANE={pane_id} ali 'EDIT {file} up'\"\n  leave_broot: true\n}\n"
+  files:
+    - source: "ali.hjson"
+      target: "~/.config/ali/broot.hjson"
+  instructions: |
+    Add to ~/.config/broot/conf.hjson imports section:
+      imports: ["~/.config/ali/broot.hjson"]
+    Or manually add verbs from the file
+  check_command: "grep -q 'ali/broot.hjson' ~/.config/broot/conf.hjson"
+  usage: |-
+    :ae <direction> - Edit file in specified direction
+    :ab <args> - Browse in new pane

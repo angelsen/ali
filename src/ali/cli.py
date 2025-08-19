@@ -9,23 +9,19 @@ from .core import ServiceRegistry, Router
 from .core.logging import ALILogger
 from .scripts import execute_script
 
-# Exit codes
 EXIT_SUCCESS = 0
 EXIT_ERROR = 1
 EXIT_COMMAND_NOT_FOUND = 127
 
-# Version
 ALI_VERSION = "2.0.0"
 
 
 def find_plugins_dir() -> Path:
-    """Find the plugins directory."""
-    # Look in package first
+    """Find plugins directory in package or user config."""
     package_dir = Path(__file__).parent / "plugins"
     if package_dir.exists():
         return package_dir
 
-    # Look in user config
     user_plugins = Path.home() / ".config" / "ali" / "plugins"
     if user_plugins.exists():
         return user_plugins
@@ -35,7 +31,6 @@ def find_plugins_dir() -> Path:
 
 def main():
     """Main CLI entry point."""
-    # Early check for --plugin-script to handle specially
     if "--plugin-script" in sys.argv:
         exit_code = execute_script(sys.argv)
         sys.exit(exit_code)
@@ -97,6 +92,12 @@ def main():
     )
 
     parser.add_argument(
+        "--init",
+        metavar="PLUGIN",
+        help="Initialize plugin integration (e.g., --init tmux)",
+    )
+
+    parser.add_argument(
         "command",
         nargs="*",
         help="ALI command to execute",
@@ -104,10 +105,16 @@ def main():
 
     args = parser.parse_args()
 
-    # Initialize logger (unless quiet)
-    logger = ALILogger(verbose=args.verbose) if not args.quiet else None
+    import os
 
-    # Initialize registry and load plugins
+    log_level = os.environ.get("ALI_LOG_LEVEL", "")
+    if args.quiet:
+        logger = None
+    elif args.verbose or log_level.upper() in ["DEBUG", "VERBOSE"]:
+        logger = ALILogger(verbose=True)
+    else:
+        logger = ALILogger(verbose=False)
+
     registry = ServiceRegistry(logger=logger)
     plugins_dir = args.plugins_dir or find_plugins_dir()
 
@@ -117,11 +124,24 @@ def main():
 
     registry.load_plugins(plugins_dir)
 
-    # Set registry in logger for environment capture
     if logger:
         logger.registry = registry
 
-    # Handle --list-services (output to stderr for info)
+    if args.init:
+        found = False
+        for plugin in registry.plugins:
+            if plugin.name == args.init:
+                found = True
+                exit_code = plugin.init()
+                sys.exit(exit_code if exit_code == 0 else EXIT_ERROR)
+        if not found:
+            print(f"Error: Plugin '{args.init}' not found", file=sys.stderr)
+            print(
+                f"Available plugins: {', '.join(p.name for p in registry.plugins)}",
+                file=sys.stderr,
+            )
+            sys.exit(EXIT_ERROR)
+
     if args.list_services:
         print("Available services:", file=sys.stderr)
         for service, providers in sorted(registry.providers.items()):
@@ -132,7 +152,6 @@ def main():
             )
         sys.exit(EXIT_SUCCESS)
 
-    # Handle --list-grammar (output to stderr for info)
     if args.list_grammar:
         print("Grammar definitions by plugin:", file=sys.stderr)
         for plugin in registry.plugins:
@@ -153,29 +172,26 @@ def main():
                         print(f"  {field:15} type: {grammar['type']}", file=sys.stderr)
         sys.exit(EXIT_SUCCESS)
 
-    # Handle --list-verbs (output to stderr for info)
     if args.list_verbs:
         if registry.verb_index:
             print("Available verbs:", file=sys.stderr)
-            for verb, plugin in sorted(registry.verb_index.items()):
-                print(f"  {verb:12} ({plugin.name})", file=sys.stderr)
+            for verb, plugin_list in sorted(registry.verb_index.items()):
+                if plugin_list:
+                    plugin_names = ", ".join(p.name for p in plugin_list)
+                    print(f"  {verb:12} ({plugin_names})", file=sys.stderr)
         else:
             print("No verbs available (no plugins loaded)", file=sys.stderr)
         sys.exit(EXIT_SUCCESS)
 
-    # Need a command
     if not args.command:
         parser.print_help()
         sys.exit(EXIT_ERROR)
 
-    # Join command parts
     command_str = " ".join(args.command)
 
-    # Create router and resolve command
     router = Router(registry)
     result = router.execute(command_str)
 
-    # Log the command
     if logger:
         tokens = router.last_tokens if hasattr(router, "last_tokens") else None
         state = router.last_state if hasattr(router, "last_state") else None
@@ -189,7 +205,6 @@ def main():
             success=success,
         )
 
-    # Check for errors
     if result.startswith("Error:") or result.startswith("Unknown"):
         print(result, file=sys.stderr)
         exit_code = (
@@ -197,7 +212,6 @@ def main():
         )
         sys.exit(exit_code)
 
-    # Output the resolved command to stdout (pure command aggregator)
     print(result)
     sys.exit(EXIT_SUCCESS)
 

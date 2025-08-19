@@ -1,0 +1,14 @@
+# ALI Integration for tmux
+# Installation: Add to ~/.tmux.conf:
+#   source-file ~/.config/ali/tmux.conf.ali
+# Or copy this content to ~/.tmux.conf
+
+# ALI Command Prompt
+# Usage: C-b a → Enter ALI command
+# Example: GO .2, SPLIT left, WIDTH 012
+bind-key a command-prompt -p "ALI> " \
+  "run-shell 'cd #{pane_current_path} && \
+    TMUX_PANE=#{pane_id} \
+    TMUX_WINDOW=#{window_id} \
+    TMUX_SESSION=#{session_name} \
+    ali \"%%\" | sh | sh'"

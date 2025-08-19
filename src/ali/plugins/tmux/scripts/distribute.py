@@ -1,13 +1,96 @@
 #!/usr/bin/env python3
-"""Distribute tmux panes evenly or by fraction."""
+"""Distribute tmux panes evenly or by fraction with column/row awareness."""
 
 import argparse
 import subprocess
 import sys
+from collections import defaultdict
+
+
+def get_detailed_pane_info():
+    """Get detailed pane information from tmux."""
+    """Get detailed pane information."""
+    try:
+        output = subprocess.check_output(
+            "tmux list-panes -F '#{pane_index}:#{pane_id}:#{pane_width}:#{pane_height}:#{pane_left}:#{pane_top}'",
+            shell=True,
+            text=True,
+        )
+
+        panes = {}
+        for line in output.strip().split("\n"):
+            if line:
+                parts = line.split(":")
+                idx = parts[0]
+                panes[idx] = {
+                    "index": idx,
+                    "id": parts[1],
+                    "width": int(parts[2]),
+                    "height": int(parts[3]),
+                    "left": int(parts[4]),
+                    "top": int(parts[5]),
+                    "right": int(parts[4]) + int(parts[2]),
+                    "bottom": int(parts[5]) + int(parts[3]),
+                }
+        return panes
+    except subprocess.CalledProcessError:
+        return {}
+
+
+def group_panes_by_position(panes, dimension):
+    """Group panes by row or column based on dimension."""
+    """Group panes by row or column."""
+    groups = defaultdict(list)
+
+    if dimension == "width":
+        for pane in panes:
+            groups[pane["top"]].append(pane)
+    else:
+        for pane in panes:
+            groups[pane["left"]].append(pane)
+
+    for key in groups:
+        if dimension == "width":
+            groups[key].sort(key=lambda p: p["left"])
+        else:
+            groups[key].sort(key=lambda p: p["top"])
+
+    return dict(groups)
+
+
+def find_column_panes(all_panes, selected_panes):
+    """Find all panes within column boundaries of selected panes."""
+    """Find all panes within column boundaries."""
+    left_bound = min(p["left"] for p in selected_panes)
+    right_bound = max(p["right"] for p in selected_panes)
+
+    column = []
+    for pane in all_panes.values():
+        if pane["left"] >= left_bound and pane["right"] <= right_bound:
+            column.append(pane)
+
+    return column
+
+
+def find_row_panes(all_panes, selected_panes):
+    """Find all panes within row boundaries of selected panes."""
+    """Find all panes within row boundaries."""
+    top_bound = min(p["top"] for p in selected_panes)
+    bottom_bound = max(p["bottom"] for p in selected_panes)
+
+    row = []
+    for pane in all_panes.values():
+        if pane["top"] >= top_bound and pane["bottom"] <= bottom_bound:
+            row.append(pane)
+
+    return row
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Distribute tmux panes")
+    """Main entry point for tmux pane distribution."""
+    parser = argparse.ArgumentParser(
+        description="Distribute tmux panes with column/row awareness"
+    )
     parser.add_argument(
         "--dimension",
         "-d",
@@ -23,13 +106,17 @@ def main():
         "-f",
         help="Target fraction: 1/2, 2/3, etc. (default: equal distribution)",
     )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show diagnostic information",
+    )
 
     args = parser.parse_args()
 
-    # Parse panes: "012" → ['0', '1', '2']
-    panes = list(args.panes)
+    selected_indices = list(args.panes)
 
-    # Get window size
     dimension_key = f"window_{args.dimension}"
     try:
         output = subprocess.check_output(
@@ -40,32 +127,127 @@ def main():
         print(f"Error: Could not get window {args.dimension}", file=sys.stderr)
         return 1
 
-    # Calculate target size
-    if args.fraction:
-        # Parse fraction like "1/2"
-        if "/" in args.fraction:
-            num, denom = args.fraction.split("/")
-            target_total = int(window_size * int(num) / int(denom))
-        else:
-            print(f"Error: Invalid fraction format: {args.fraction}", file=sys.stderr)
+    all_panes = get_detailed_pane_info()
+    if not all_panes:
+        print("Error: Could not get pane information", file=sys.stderr)
+        return 1
+
+    selected_panes = []
+    for idx in selected_indices:
+        if idx not in all_panes:
+            print(f"Error: Pane {idx} does not exist", file=sys.stderr)
             return 1
-    else:
-        # Equal distribution - use full window
-        target_total = window_size
+        selected_panes.append(all_panes[idx])
 
-    # Size per pane (with remainder going to first pane)
-    size_per_pane = target_total // len(panes)
-    remainder = target_total % len(panes)
-
-    # Resize each pane
+    commands = []
     flag = "-x" if args.dimension == "width" else "-y"
 
-    for i, pane in enumerate(panes):
-        # First pane gets the remainder pixels
-        size = size_per_pane + (remainder if i == 0 else 0)
+    if args.fraction:
+        if "/" not in args.fraction:
+            print(f"Error: Invalid fraction format: {args.fraction}", file=sys.stderr)
+            return 1
 
-        # Output command to stdout (pure command aggregator)
-        print(f"tmux resize-pane -t .{pane} {flag} {size}")
+        num, denom = args.fraction.split("/")
+        target_size = int(window_size * int(num) / int(denom))
+
+        if args.dimension == "width":
+            affected_panes = find_column_panes(all_panes, selected_panes)
+        else:
+            affected_panes = find_row_panes(all_panes, selected_panes)
+
+        if args.verbose:
+            print(
+                f"Selected panes: {[p['index'] for p in selected_panes]}",
+                file=sys.stderr,
+            )
+            print(
+                f"Affected column/row: {[p['index'] for p in affected_panes]}",
+                file=sys.stderr,
+            )
+            print(
+                f"Target {args.dimension}: {target_size}px ({args.fraction} of {window_size}px)",
+                file=sys.stderr,
+            )
+
+        if args.dimension == "width":
+            limiting = max(affected_panes, key=lambda p: p["width"])
+            current_size = limiting["width"]
+        else:
+            limiting = max(affected_panes, key=lambda p: p["height"])
+            current_size = limiting["height"]
+
+        if args.verbose:
+            print(
+                f"Limiting pane: {limiting['index']} ({current_size}px → {target_size}px)",
+                file=sys.stderr,
+            )
+
+        if current_size != target_size:
+            commands.append(
+                f"tmux resize-pane -t {limiting['id']} {flag} {target_size}"
+            )
+
+        groups = group_panes_by_position(affected_panes, args.dimension)
+
+        for position, group in groups.items():
+            if len(group) > 1:
+                if args.dimension == "width":
+                    each_size = target_size // len(group)
+                    if args.verbose:
+                        print(
+                            f"Row at y={position}: {len(group)} panes × {each_size}px",
+                            file=sys.stderr,
+                        )
+                else:
+                    each_size = target_size // len(group)
+                    if args.verbose:
+                        print(
+                            f"Column at x={position}: {len(group)} panes × {each_size}px",
+                            file=sys.stderr,
+                        )
+
+                for pane in group:
+                    commands.append(
+                        f"tmux resize-pane -t {pane['id']} {flag} {each_size}"
+                    )
+
+    else:
+        if args.dimension == "width":
+            total_width = sum(p["width"] for p in selected_panes)
+            each_width = total_width // len(selected_panes)
+
+            if args.verbose:
+                print(
+                    f"Redistributing {len(selected_panes)} panes: {total_width}px → {len(selected_panes)} × {each_width}px",
+                    file=sys.stderr,
+                )
+
+            for pane in selected_panes:
+                commands.append(f"tmux resize-pane -t {pane['id']} -x {each_width}")
+        else:
+            total_height = sum(p["height"] for p in selected_panes)
+            each_height = total_height // len(selected_panes)
+
+            if args.verbose:
+                print(
+                    f"Redistributing {len(selected_panes)} panes: {total_height}px → {len(selected_panes)} × {each_height}px",
+                    file=sys.stderr,
+                )
+
+            for pane in selected_panes:
+                commands.append(f"tmux resize-pane -t {pane['id']} -y {each_height}")
+
+    if commands:
+        output = []
+        for i, cmd in enumerate(commands):
+            output.append(cmd)
+            if i < len(commands) - 1:
+                output.append("sleep 0.05")
+
+        print(" && ".join(output))
+    else:
+        if args.verbose:
+            print("No resize needed", file=sys.stderr)
 
     return 0
 

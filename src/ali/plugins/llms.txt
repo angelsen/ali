@@ -1,0 +1,156 @@
+# ALI Plugin Best Practices
+
+## Template Engine Features
+
+### 1. Conditionals - Include only if variable exists
+```yaml
+exec: "{?target:{select_pane} {target} && }{split}"
+exec: "command{?target: -t {target}}"
+```
+
+### 2. Array Lookups - Map values to outputs
+```yaml
+exec: "{direction[left:-h -b,right:-h,up:-v -b,down:-v,_:-h]}"
+exec: "{verb[WIDTH:width,HEIGHT:height]}"
+```
+
+### 3. Defaults - Fallback values
+```yaml
+exec: "{target|.}"  # Default to current
+exec: "{direction|right}"  # Default direction
+```
+
+## Plugin Patterns
+
+### Use Services, Not Commands
+```yaml
+# ✅ GOOD - Use services from other plugins
+exec: "{split} 'broot {path}'"
+exec: "{modal_popup} 'selector'"
+
+# ❌ BAD - Direct commands
+exec: "tmux split-window -h 'broot {path}'"
+```
+
+### Single Pattern Per Behavior
+```yaml
+# ✅ GOOD - One pattern with conditionals/arrays
+- match: {verb: EDIT, file: present}
+  exec: "{split} 'micro{?file_exec: {}: {file}}'"
+
+# ❌ BAD - Multiple patterns for variations
+- match: {verb: EDIT, file: present, direction: left}
+  exec: "{split_left} 'micro {file}'"
+- match: {verb: EDIT, file: present, direction: right}
+  exec: "{split_right} 'micro {file}'"
+```
+
+### Service Organization
+```yaml
+services:
+  # Public services - for other plugins
+  split: "tmux split-window{?target: -t {target}} {direction[...]}"
+  edit: "micro"
+  
+  # Internal templates - plugin only (prefix with _)
+  _distribute_script: "python3 {plugin_dir}/scripts/distribute.py"
+```
+
+### Grammar Reuse
+```yaml
+grammar:
+  # Define once, use everywhere
+  direction:
+    values: [left, right, up, down]
+    transform: lower
+  target:
+    pattern: "^\\.[0-9]+$|^\\.\\?$|^:[0-9]+$"
+```
+
+### Expectations with Defaults
+```yaml
+expectations:
+  VERB: [required, "optional?", "with_default?=value"]
+```
+
+## Core Principles
+
+1. **Plugins use services** - Never call other plugin's commands directly
+2. **Minimize patterns** - Use template features instead of multiple commands
+3. **Data over code** - All logic in YAML via conditionals/arrays
+4. **Clean separation** - Public services vs internal templates (_prefixed)
+5. **Predictable names** - split_*, edit_*, browse_*, etc.
+
+## Plugin Structure Standard
+
+### Section Order (strict)
+1. **Metadata** - name, version, description
+2. **Capabilities** - provides, requires  
+3. **Context** - runtime requirements
+4. **Metadata** - environment vars
+5. **Grammar** - field definitions
+6. **Vocabulary** - verb lists
+7. **Expectations** - verb requirements
+8. **Inference** - transformation rules
+9. **Commands** - verb implementations
+10. **Selectors** - stream/action selectors
+11. **Services** - templates (_prefixed for internal)
+12. **Integration** - setup instructions
+
+### Comment Style
+- **Section headers only** - Single `#` comment above each section
+- **No inline comments** - Let structure self-document
+- **No sub-sections** - No `# === Navigation ===` style
+- **No explanations** - Good naming > comments
+
+## Example: Complete Plugin Pattern
+```yaml
+# Metadata
+name: example
+version: 1.0
+description: Brief one-line description
+provides:
+  feature:
+    type: service
+    capabilities: [action]
+requires: [pane, modal]
+context: {}
+metadata:
+  environment:
+    optional: ["EXAMPLE_VAR"]
+# Grammar
+grammar:
+  item: {type: string}
+  direction: {values: [left, right], transform: lower}
+# Vocabulary
+vocabulary:
+  verbs: [ACTION]
+# Expectations
+expectations:
+  ACTION: [item, "direction?=right"]
+# Commands
+commands:
+  - match: {verb: ACTION}
+    exec: "{split} 'tool{?item: {item}}'"
+# Selectors
+selectors:
+  item?:
+    type: stream
+    exec: "tool"
+# Services
+services:
+  process: "tool --process"
+  _internal: "helper command"
+# Integration
+integration:
+  files:
+    - source: "config.ali"
+      target: "~/.config/tool/ali.conf"
+  instructions: |
+    Add to config file:
+      import ali.conf
+  check_command: "grep -q 'ali.conf' ~/.config/tool/config"
+  usage: "How to use from tool"
+```
+
+Keep it simple, use services, leverage templates!

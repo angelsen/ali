@@ -12,32 +12,24 @@ class ALILogger:
     """Structured logging for pattern analysis."""
 
     def __init__(self, verbose: bool = False, registry=None):
-        """Initialize logger with session tracking.
-
-        Args:
-            verbose: If True, output debug logs to stderr
-            registry: ServiceRegistry to get plugin metadata
-        """
         self.session_id = self._generate_session_id()
         self.log_dir = Path.home() / ".local/share/ali/logs"
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.registry = registry
 
-        # Setup Python logging for debug
         self._setup_python_logging(verbose)
 
     def _generate_session_id(self) -> str:
-        """Generate unique session ID."""
+        """Generate unique session ID with timestamp and UUID."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         unique = str(uuid.uuid4())[:8]
         return f"{timestamp}_{unique}"
 
     def _setup_python_logging(self, verbose: bool):
-        """Setup Python's logging module for debug output."""
+        """Configure Python logging handlers and formatters."""
         self.logger = logging.getLogger("ali")
         self.logger.setLevel(logging.DEBUG)
 
-        # File handler - always log everything
         file_handler = logging.FileHandler(
             self.log_dir / f"debug_{self.session_id}.log"
         )
@@ -48,7 +40,6 @@ class ALILogger:
         file_handler.setFormatter(file_formatter)
         self.logger.addHandler(file_handler)
 
-        # Console handler - only if verbose, goes to stderr
         if verbose:
             import sys
 
@@ -59,21 +50,16 @@ class ALILogger:
             self.logger.addHandler(console_handler)
 
     def _collect_plugin_env(self) -> dict:
-        """Collect only plugin-declared environment variables.
-
-        Returns dict of environment variables registered by plugins.
-        """
+        """Collect environment variables defined by plugins."""
         env = {}
 
         if not self.registry:
             return env
 
-        # Collect only what plugins declare
         for plugin in self.registry.plugins:
             metadata = plugin.config.get("metadata", {})
             env_config = metadata.get("environment", {})
 
-            # Collect all declared environment variables
             for var_list in ["requires", "optional", "captures"]:
                 for var in env_config.get(var_list, []):
                     if var in os.environ:
@@ -90,15 +76,15 @@ class ALILogger:
         error: str | None = None,
         success: bool = True,
     ):
-        """Log command for pattern analysis.
+        """Log command execution with context and results.
 
         Args:
-            command_str: Raw command string from user
-            tokens: Parsed tokens
-            state: Parser state dict
-            result: Resolved command or error
+            command_str: Raw command string
+            tokens: Parsed command tokens
+            state: Command state after parsing
+            result: Command result if successful
             error: Error message if failed
-            success: Whether command succeeded
+            success: Whether command executed successfully
         """
         event = {
             "timestamp": datetime.now().isoformat(),
@@ -109,14 +95,12 @@ class ALILogger:
             "result": result,
             "error": error,
             "success": success,
-            "env": self._collect_plugin_env(),  # Only plugin-declared vars
+            "env": self._collect_plugin_env(),
         }
 
-        # Always log to JSONL for analysis
         with open(self.log_dir / "commands.jsonl", "a") as f:
             f.write(json.dumps(event) + "\n")
 
-        # Also log to debug
         if success:
             self.logger.debug(f"Command: {command_str} -> {result}")
         else:
@@ -125,16 +109,22 @@ class ALILogger:
     def log_plugin_load(
         self, plugin_name: str, success: bool, error: str | None = None
     ):
-        """Log plugin loading events."""
+        """Log plugin loading success or failure.
+
+        Args:
+            plugin_name: Name of the plugin
+            success: Whether plugin loaded successfully
+            error: Error message if loading failed
+        """
         if success:
             self.logger.debug(f"Loaded plugin: {plugin_name}")
         else:
             self.logger.warning(f"Failed to load plugin {plugin_name}: {error}")
 
     def debug(self, message: str):
-        """General debug logging."""
+        """Log debug message."""
         self.logger.debug(message)
 
     def error(self, message: str):
-        """Error level logging."""
+        """Log error message."""
         self.logger.error(message)
