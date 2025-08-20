@@ -94,7 +94,7 @@ commands:
   - match: {verb: GO, target: present}
     exec: "{select_pane} {target}"
   - match: {verb: SPLIT, object: PANE, direction: pop}
-    exec: "{split_popup} 'bash'"
+    exec: "tmux display-popup -w 80% -h 80% -d \"$PWD\""
   - match: {verb: SPLIT, object: PANE}
     exec: "{?target:{select_pane} {target} && }{split}"
   - match: {verb: KILL, object: PANE}

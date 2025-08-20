@@ -9,11 +9,15 @@ from collections import defaultdict
 
 def get_detailed_pane_info():
     """Get detailed pane information from tmux."""
-    """Get detailed pane information."""
     try:
         output = subprocess.check_output(
-            "tmux list-panes -F '#{pane_index}:#{pane_id}:#{pane_width}:#{pane_height}:#{pane_left}:#{pane_top}'",
-            shell=True,
+            [
+                "tmux",
+                "list-panes",
+                "-F",
+                "#{pane_index}:#{pane_id}:#{pane_width}:#{pane_height}:#{pane_left}:#{pane_top}",
+            ],
+            timeout=1,
             text=True,
         )
 
@@ -35,11 +39,13 @@ def get_detailed_pane_info():
         return panes
     except subprocess.CalledProcessError:
         return {}
+    except subprocess.TimeoutExpired:
+        print("Error: tmux command timed out", file=sys.stderr)
+        return {}
 
 
 def group_panes_by_position(panes, dimension):
     """Group panes by row or column based on dimension."""
-    """Group panes by row or column."""
     groups = defaultdict(list)
 
     if dimension == "width":
@@ -60,7 +66,6 @@ def group_panes_by_position(panes, dimension):
 
 def find_column_panes(all_panes, selected_panes):
     """Find all panes within column boundaries of selected panes."""
-    """Find all panes within column boundaries."""
     left_bound = min(p["left"] for p in selected_panes)
     right_bound = max(p["right"] for p in selected_panes)
 
@@ -74,7 +79,6 @@ def find_column_panes(all_panes, selected_panes):
 
 def find_row_panes(all_panes, selected_panes):
     """Find all panes within row boundaries of selected panes."""
-    """Find all panes within row boundaries."""
     top_bound = min(p["top"] for p in selected_panes)
     bottom_bound = max(p["bottom"] for p in selected_panes)
 
@@ -88,6 +92,17 @@ def find_row_panes(all_panes, selected_panes):
 
 def main():
     """Main entry point for tmux pane distribution."""
+    # Check if we're in a tmux session
+    try:
+        subprocess.check_output(["tmux", "info"], stderr=subprocess.DEVNULL, timeout=1)
+    except (
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        FileNotFoundError,
+    ):
+        print("Error: Not in a tmux session or tmux not available", file=sys.stderr)
+        return 1
+
     parser = argparse.ArgumentParser(
         description="Distribute tmux panes with column/row awareness"
     )
@@ -120,11 +135,14 @@ def main():
     dimension_key = f"window_{args.dimension}"
     try:
         output = subprocess.check_output(
-            f"tmux display -p '#{{{dimension_key}}}'", shell=True, text=True
+            ["tmux", "display", "-p", f"#{{{dimension_key}}}"], timeout=1, text=True
         ).strip()
         window_size = int(output)
     except subprocess.CalledProcessError:
         print(f"Error: Could not get window {args.dimension}", file=sys.stderr)
+        return 1
+    except subprocess.TimeoutExpired:
+        print("Error: tmux command timed out", file=sys.stderr)
         return 1
 
     all_panes = get_detailed_pane_info()
@@ -138,6 +156,27 @@ def main():
             print(f"Error: Pane {idx} does not exist", file=sys.stderr)
             return 1
         selected_panes.append(all_panes[idx])
+
+    # Validate that distribution is possible
+    if args.dimension == "height":
+        # Check if all panes are in same row (same top coordinate)
+        unique_tops = set(p["top"] for p in all_panes.values())
+        if len(unique_tops) == 1:
+            print(
+                "Error: Cannot distribute height - all panes are in a single row",
+                file=sys.stderr,
+            )
+            return 1
+
+    elif args.dimension == "width":
+        # Check if all panes are in same column (same left coordinate)
+        unique_lefts = set(p["left"] for p in all_panes.values())
+        if len(unique_lefts) == 1:
+            print(
+                "Error: Cannot distribute width - all panes are in a single column",
+                file=sys.stderr,
+            )
+            return 1
 
     commands = []
     flag = "-x" if args.dimension == "width" else "-y"
