@@ -148,9 +148,8 @@ integration:
   files:
     - source: "tmux.conf.ali"
       target: "~/.config/ali/tmux.conf.ali"
-  instructions: |
-    Add to ~/.tmux.conf:
-      source-file ~/.config/ali/tmux.conf.ali
-    Then reload: tmux source ~/.tmux.conf
+  inject:
+    file: "~/.tmux.conf"
+    line: "source-file ~/.config/ali/tmux.conf.ali"
   check_command: "grep -q 'tmux.conf.ali' ~/.tmux.conf"
   usage: "Press C-b a to open ALI prompt"

@@ -65,6 +65,7 @@ class Plugin:
 
         print(f"Initializing {self.name} integration...", file=sys.stderr)
 
+        # Copy config files
         for file_info in self.integration.get("files", []):
             source = self.path.parent / file_info["source"]
             target = Path(file_info["target"]).expanduser()
@@ -80,15 +81,39 @@ class Plugin:
             except Exception as e:
                 print(f"✗ Failed to copy {file_info['source']}: {e}", file=sys.stderr)
 
+        # Check if already integrated
         check_cmd = self.integration.get("check_command")
+        already_integrated = False
         if check_cmd:
             result = subprocess.run(check_cmd, shell=True, capture_output=True)
-            if result.returncode == 0:
-                print("✓ Already integrated", file=sys.stderr)
-            else:
-                print("✗ Not yet integrated", file=sys.stderr)
-                print("\nTo complete setup:", file=sys.stderr)
-                print(self.integration.get("instructions", ""), file=sys.stderr)
+            already_integrated = result.returncode == 0
+
+        if already_integrated:
+            print("✓ Already integrated", file=sys.stderr)
+        else:
+            # Offer to inject config line
+            inject = self.integration.get("inject")
+            if inject:
+                target_file = Path(inject["file"]).expanduser()
+                line = inject["line"]
+
+                try:
+                    response = input(f"Add to {target_file}? [Y/n] ").strip().lower()
+                except EOFError:
+                    response = "n"
+
+                if response in ("", "y", "yes"):
+                    try:
+                        with open(target_file, "a") as f:
+                            f.write(f"\n# ALI integration\n{line}\n")
+                        print(f"✓ Added to {target_file}", file=sys.stderr)
+                    except Exception as e:
+                        print(f"✗ Failed to write: {e}", file=sys.stderr)
+                        print("\nManual setup:", file=sys.stderr)
+                        print(f"  echo '{line}' >> {target_file}", file=sys.stderr)
+                else:
+                    print("\nManual setup:", file=sys.stderr)
+                    print(f"  echo '{line}' >> {target_file}", file=sys.stderr)
 
         usage = self.integration.get("usage")
         if usage:
