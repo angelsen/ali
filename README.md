@@ -1,6 +1,6 @@
 # ALI - Action Language Interpreter
 
-[![PyPI version](https://badge.fury.io/py/ali.svg)](https://pypi.org/project/ali/)
+[![PyPI version](https://badge.fury.io/py/ali-tool.svg)](https://pypi.org/project/ali-tool/)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -10,9 +10,9 @@ Compose complex tmux commands from regular phrases. Pure command aggregator - ou
 
 ```bash
 # Install
-uv tool install ali  # Recommended
+uv tool install ali-tool  # Recommended
 # OR
-pip install ali
+pip install ali-tool
 
 # Initialize tmux integration
 ali --init tmux
