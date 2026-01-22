@@ -41,6 +41,9 @@ selectors:
   br?:
     type: stream
     exec: "broot"
+  rs?:
+    type: stream
+    exec: "broot ~/.local/share/resources"
 # Services
 services: {}
 # Integration

@@ -54,6 +54,10 @@ grammar:
   panes:
     pattern: "^[0-9]+$"
     description: "Pane indices (e.g., 012 for panes 0, 1, 2)"
+  modifier:
+    values: [full]
+    transform: lower
+    description: "Split modifier (full = full-width/height using -f flag)"
   fraction:
     pattern: "^\\d+/\\d+$"
     description: "Size fractions (e.g., 1/2, 2/3)"
@@ -67,7 +71,7 @@ vocabulary:
 expectations:
   GO: [target]
   KILL: ["object?", "target?"]
-  SPLIT: ["target?", "direction?=right"]
+  SPLIT: ["target?", "direction?=right", "modifier?"]
   CREATE: [object, "direction?"]
   WIDTH: [panes, "clause?", "fraction?"]
   HEIGHT: [panes, "clause?", "fraction?"]
@@ -114,7 +118,7 @@ commands:
   - match: {verb: COPY, stream_exec: present}
     exec: "{modal_popup} '{stream_exec} | tmux load-buffer -w'"
   - match: {verb: ECHO, stream_exec: present}
-    exec: "{modal_popup} '{stream_exec} | xargs -I {{{}}} tmux send-keys{?target: -t {target}} {{{}}}'"
+    exec: "{modal_popup} '{stream_exec} | tmux load-buffer -b ali-echo - && tmux paste-buffer -b ali-echo{?target: -t {target}} && tmux delete-buffer -b ali-echo'"
 # Selectors
 selectors:
   .?:
@@ -125,7 +129,7 @@ selectors:
     exec: "{choose_window}"
 # Services
 services:
-  split: "tmux split-window{?target: -t {target}} {direction[left:-h -b,right:-h,up:-v -b,down:-v,_:-h]}"
+  split: "tmux split-window{?modifier: -f}{?target: -t {target}} {direction[left:-h -b,right:-h,up:-v -b,down:-v,_:-h]}"
   split_popup: "tmux display-popup -w 80% -h 80% -d \"$PWD\" -E"
   display_panes: "tmux display-panes"
   choose_window: "tmux choose-window"

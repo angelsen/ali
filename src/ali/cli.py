@@ -2,6 +2,7 @@
 """ALI CLI - Main entry point."""
 
 import sys
+import os
 import argparse
 from pathlib import Path
 
@@ -104,8 +105,6 @@ def main():
     )
 
     args = parser.parse_args()
-
-    import os
 
     log_level = os.environ.get("ALI_LOG_LEVEL", "")
     if args.quiet:

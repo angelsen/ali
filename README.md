@@ -1,6 +1,10 @@
-# ALI - Adaptive Language Interface
+# ALI - Action Language Interpreter
 
-Action Language Interpreter - compose complex commands from regular phrases.
+[![PyPI version](https://badge.fury.io/py/ali.svg)](https://pypi.org/project/ali/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Compose complex tmux commands from regular phrases. Pure command aggregator - outputs commands, never executes them.
 
 ## Quickstart
 
@@ -81,7 +85,7 @@ selectors:
     exec: "selector"
 ```
 
-See `src/ali/plugins/llms.txt` for comprehensive plugin patterns.
+See the [plugin documentation](https://github.com/angelsen/ali/tree/master/src/ali/plugins) for more patterns.
 
 ## Examples
 
@@ -116,18 +120,15 @@ ali COPY br?       # Browse in popup, copy to clipboard
 ## Development
 
 ```bash
-# Install dev version
+# Clone and install dev version
+git clone https://github.com/angelsen/ali.git
+cd ali
 uv tool install -e .
-# OR
-uv pip install -e .
 
-# Test commands
-python3 -c "from src.ali.core.router import Router; print(Router().route('GO .2'))"
-
-# Run directly
-python3 -m src.ali GO .2
+# Test a command
+ali GO .2
 ```
 
 ## License
 
-MIT
+MIT - see [LICENSE](LICENSE)

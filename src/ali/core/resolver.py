@@ -88,11 +88,9 @@ class TemplateParser:
 
     def peek(self, n: int) -> str:
         """Look ahead n characters."""
-        """Look ahead n characters."""
         return self.template[self.pos : self.pos + n]
 
     def parse_variable(self) -> Union[Variable, ArrayLookup]:
-        """Parse {var}, {var|default}, or {var[k1:v1,k2:v2]}."""
         """Parse {var}, {var|default}, or {var[k1:v1,k2:v2]}."""
         self.pos += 1
 
@@ -132,7 +130,6 @@ class TemplateParser:
 
     def parse_conditional(self) -> Conditional:
         """Parse {?var:then} or {?var:then:else}."""
-        """Parse {?var:then} or {?var:then:else}."""
         self.pos += 2
 
         colon = self.template.find(":", self.pos)
@@ -156,7 +153,6 @@ class TemplateParser:
         return Conditional(var, then_part, else_part)
 
     def extract_conditional_part(self) -> tuple[str, bool]:
-        """Extract text until : or }, handling nested braces."""
         """Extract text until : or }, handling nested braces."""
         text = ""
         brace_depth = 0
@@ -193,7 +189,6 @@ class TemplateResolver:
 
     def resolve(self, nodes: List[Node]) -> str:
         """Resolve list of nodes to string."""
-        """Resolve list of nodes to string."""
         result = []
 
         for node in nodes:
@@ -210,7 +205,6 @@ class TemplateResolver:
 
     def resolve_variable(self, node: Variable) -> str:
         """Resolve a variable node."""
-        """Resolve a variable node."""
         value = self.context.get(node.name)
 
         if value is None or value == "":
@@ -222,7 +216,6 @@ class TemplateResolver:
 
     def resolve_conditional(self, node: Conditional) -> str:
         """Resolve a conditional node."""
-        """Resolve a conditional node."""
         value = self.context.get(node.var)
 
         if value is not None and value != "":
@@ -233,7 +226,6 @@ class TemplateResolver:
             return ""
 
     def resolve_array_lookup(self, node: ArrayLookup) -> str:
-        """Resolve an array lookup node."""
         """Resolve an array lookup node."""
         value = self.context.get(node.var)
 
@@ -281,7 +273,6 @@ def resolve_command(
 
 def collect_service_templates(registry: ServiceRegistry) -> Dict[str, str]:
     """Collect all service templates from plugins."""
-    """Collect all service templates from plugins."""
     templates = {}
 
     for plugin in registry.plugins:
@@ -299,7 +290,6 @@ def collect_service_templates(registry: ServiceRegistry) -> Dict[str, str]:
 
 
 def collect_selectors(registry: ServiceRegistry) -> Dict[str, Dict[str, str]]:
-    """Collect all selectors from plugins."""
     """Collect all selectors from plugins."""
     selectors = {}
 
