@@ -85,7 +85,7 @@ selectors:
     exec: "selector"
 ```
 
-See the [plugin documentation](https://github.com/angelsen/ali/tree/master/src/ali/plugins) for more patterns.
+See the [plugin documentation](https://github.com/angelsen/ali/tree/master/src/ali_tool/plugins) for more patterns.
 
 ## Examples
 
@@ -111,11 +111,23 @@ ali EDIT file.txt pop   # Edit in popup
 ali VIEW file.txt       # Read-only view
 ```
 
+### Layout
+```bash
+ali LAYOUT         # Interactive layout picker
+ali LAYOUT '1|23'  # Apply layout expression
+ali TERMTAP        # Open termtap companion popup
+```
+
 ### Stream Operations
 ```bash
 ali ECHO ed?       # Edit in popup, pipe to send-keys
 ali COPY br?       # Browse in popup, copy to clipboard
 ```
+
+## Ideas
+
+- **Multi-stage selectors** — Pipe selectors together: `br? | ed?` (browse, then edit the result)
+- **Shell completions** — Generate from verb/grammar data for bash/zsh/fish
 
 ## Development
 
@@ -125,8 +137,22 @@ git clone https://github.com/angelsen/ali.git
 cd ali
 uv tool install -e .
 
-# Test a command
+# Test — ALI outputs commands, never executes
 ali GO .2
+ali SPLIT right | cat   # verify clean stdout
+```
+
+### REPL Debugging
+```python
+from pathlib import Path
+from ali_tool.core import ServiceRegistry, Router
+
+registry = ServiceRegistry()
+registry.load_plugins(Path('./src/ali_tool/plugins'))
+router = Router(registry)
+
+router.execute("SPLIT right")  # see output
+router.last_state               # inspect parsed state
 ```
 
 ## License

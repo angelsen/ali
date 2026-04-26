@@ -18,7 +18,7 @@ STOP → READ everything → EVALUATE alternatives → REFACTOR first → THEN W
 - **Scripts for complexity** - Not YAML gymnastics  
 - **ALI is pure** - Only outputs commands, never executes
 - **Test in REPL** - Router returns strings, test without execution
-- **Follow plugin patterns** - See @src/ali/plugins/llms.txt for best practices
+- **Follow plugin patterns** - See @src/ali_tool/plugins/llms.txt for best practices
 
 ## Tool Discipline
 
