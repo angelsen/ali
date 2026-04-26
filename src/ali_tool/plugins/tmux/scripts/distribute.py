@@ -230,20 +230,17 @@ def main():
 
         for position, group in groups.items():
             if len(group) > 1:
-                if args.dimension == "width":
-                    each_size = target_size // len(group)
-                    if args.verbose:
-                        print(
-                            f"Row at y={position}: {len(group)} panes × {each_size}px",
-                            file=sys.stderr,
-                        )
-                else:
-                    each_size = target_size // len(group)
-                    if args.verbose:
-                        print(
-                            f"Column at x={position}: {len(group)} panes × {each_size}px",
-                            file=sys.stderr,
-                        )
+                each_size = target_size // len(group)
+                if args.verbose:
+                    label = (
+                        f"Row at y={position}"
+                        if args.dimension == "width"
+                        else f"Column at x={position}"
+                    )
+                    print(
+                        f"{label}: {len(group)} panes × {each_size}px",
+                        file=sys.stderr,
+                    )
 
                 for pane in group:
                     commands.append(
@@ -251,30 +248,18 @@ def main():
                     )
 
     else:
-        if args.dimension == "width":
-            total_width = sum(p["width"] for p in selected_panes)
-            each_width = total_width // len(selected_panes)
+        dim_attr = args.dimension
+        total = sum(p[dim_attr] for p in selected_panes)
+        each_size = total // len(selected_panes)
 
-            if args.verbose:
-                print(
-                    f"Redistributing {len(selected_panes)} panes: {total_width}px → {len(selected_panes)} × {each_width}px",
-                    file=sys.stderr,
-                )
+        if args.verbose:
+            print(
+                f"Redistributing {len(selected_panes)} panes: {total}px → {len(selected_panes)} × {each_size}px",
+                file=sys.stderr,
+            )
 
-            for pane in selected_panes:
-                commands.append(f"tmux resize-pane -t {pane['id']} -x {each_width}")
-        else:
-            total_height = sum(p["height"] for p in selected_panes)
-            each_height = total_height // len(selected_panes)
-
-            if args.verbose:
-                print(
-                    f"Redistributing {len(selected_panes)} panes: {total_height}px → {len(selected_panes)} × {each_height}px",
-                    file=sys.stderr,
-                )
-
-            for pane in selected_panes:
-                commands.append(f"tmux resize-pane -t {pane['id']} -y {each_height}")
+        for pane in selected_panes:
+            commands.append(f"tmux resize-pane -t {pane['id']} {flag} {each_size}")
 
     if commands:
         output = []

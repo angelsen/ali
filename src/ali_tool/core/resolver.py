@@ -1,11 +1,11 @@
 """Template Resolver - Clean, simple template substitution engine."""
 
-from typing import Dict, Any, List, Optional, Union
+from __future__ import annotations
+
+from typing import Any
 from dataclasses import dataclass
 from .plugin import Plugin
 from .registry import ServiceRegistry
-
-Node = Union["Literal", "Variable", "Conditional", "ArrayLookup"]
 
 
 @dataclass
@@ -20,7 +20,7 @@ class Variable:
     """Variable substitution node."""
 
     name: str
-    default: Optional[str] = None
+    default: str | None = None
 
 
 @dataclass
@@ -28,8 +28,8 @@ class Conditional:
     """Conditional inclusion node."""
 
     var: str
-    then_part: List[Node]  # List of nodes
-    else_part: Optional[List[Node]] = None  # Optional else clause
+    then_part: list[Node]
+    else_part: list[Node] | None = None
 
 
 @dataclass
@@ -37,8 +37,11 @@ class ArrayLookup:
     """Array lookup node for mapping values."""
 
     var: str
-    mappings: Dict[str, str]  # key:value mappings
-    default: Optional[str] = None
+    mappings: dict[str, str]
+    default: str | None = None
+
+
+Node = Literal | Variable | Conditional | ArrayLookup
 
 
 class TemplateParser:
@@ -49,7 +52,7 @@ class TemplateParser:
         self.pos = 0
         self.length = len(template)
 
-    def parse(self) -> List[Node]:
+    def parse(self) -> list[Node]:
         """Parse template into list of nodes."""
         nodes = []
         text = ""
@@ -90,7 +93,7 @@ class TemplateParser:
         """Look ahead n characters."""
         return self.template[self.pos : self.pos + n]
 
-    def parse_variable(self) -> Union[Variable, ArrayLookup]:
+    def parse_variable(self) -> Variable | ArrayLookup:
         """Parse {var}, {var|default}, or {var[k1:v1,k2:v2]}."""
         self.pos += 1
 
@@ -184,10 +187,10 @@ class TemplateParser:
 class TemplateResolver:
     """Resolve template AST with context."""
 
-    def __init__(self, context: Dict[str, Any]):
+    def __init__(self, context: dict[str, Any]):
         self.context = context
 
-    def resolve(self, nodes: List[Node]) -> str:
+    def resolve(self, nodes: list[Node]) -> str:
         """Resolve list of nodes to string."""
         result = []
 
@@ -240,18 +243,16 @@ class TemplateResolver:
 
 
 def resolve_command(
-    state: Dict[str, Any],
+    state: dict[str, Any],
     plugin: Plugin,
-    command: Dict[str, Any],
-    registry: ServiceRegistry,
+    command: dict[str, Any],
+    services: dict[str, str],
 ) -> str:
     """Resolve command template with state and services."""
     template = command.get("exec", "")
     if not template:
         return "Error: No exec defined"
 
-    # Collect services and pre-resolve any that contain state variables
-    services = collect_service_templates(registry)
     plugin_dir = str(plugin.path.parent)
 
     # First resolve services that might reference state variables
@@ -271,7 +272,7 @@ def resolve_command(
     return substitute(template, context)
 
 
-def collect_service_templates(registry: ServiceRegistry) -> Dict[str, str]:
+def collect_service_templates(registry: ServiceRegistry) -> dict[str, str]:
     """Collect all service templates from plugins."""
     templates = {}
 
@@ -289,7 +290,7 @@ def collect_service_templates(registry: ServiceRegistry) -> Dict[str, str]:
     return templates
 
 
-def collect_selectors(registry: ServiceRegistry) -> Dict[str, Dict[str, str]]:
+def collect_selectors(registry: ServiceRegistry) -> dict[str, dict[str, str]]:
     """Collect all selectors from plugins."""
     selectors = {}
 
@@ -302,13 +303,11 @@ def collect_selectors(registry: ServiceRegistry) -> Dict[str, Dict[str, str]]:
 
 
 def expand_selectors(
-    state: Dict[str, Any],
-    selectors: Dict[str, Dict[str, str]],
-    registry: ServiceRegistry,
-) -> Dict[str, Any]:
+    state: dict[str, Any],
+    selectors: dict[str, dict[str, str]],
+    services: dict[str, str],
+) -> dict[str, Any]:
     """Expand selectors by adding their exec commands to state."""
-    # First get service templates for resolving selector exec strings
-    services = collect_service_templates(registry)
 
     for field_name, value in list(state.items()):
         if field_name.startswith("_") or field_name.endswith("_exec"):
@@ -330,7 +329,7 @@ def expand_selectors(
     return state
 
 
-def substitute(template: str, context: Dict[str, Any]) -> str:
+def substitute(template: str, context: dict[str, Any]) -> str:
     """Substitute template with context (single-pass).
 
     Args:

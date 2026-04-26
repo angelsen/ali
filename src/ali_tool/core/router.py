@@ -2,10 +2,15 @@
 
 import shlex
 import re
-from typing import Dict, Any, Optional, List
+from typing import Any
 from .plugin import Plugin
 from .registry import ServiceRegistry
-from .resolver import resolve_command, collect_selectors, expand_selectors
+from .resolver import (
+    resolve_command,
+    collect_selectors,
+    collect_service_templates,
+    expand_selectors,
+)
 
 
 class Router:
@@ -52,6 +57,7 @@ class Router:
         plugin = plugins[0]
 
         selectors = collect_selectors(self.registry)
+        services = collect_service_templates(self.registry)
 
         state = self._parse(verb, tokens[1:], plugin, selectors)
         self.last_state = state
@@ -61,7 +67,7 @@ class Router:
 
         state = self._apply_inference(state, plugin)
 
-        state = expand_selectors(state, selectors, self.registry)
+        state = expand_selectors(state, selectors, services)
 
         command = self._find_command(state, plugin)
         if not command:
@@ -74,17 +80,17 @@ class Router:
                 missing = [f for f in required if f not in state]
                 if missing:
                     return f"Error: {verb} requires: {', '.join(missing)}"
-            return f"No matching command for: {command_str}"
+            return f"Error: No matching command for: {command_str}"
 
-        return resolve_command(state, plugin, command, self.registry)
+        return resolve_command(state, plugin, command, services)
 
     def _parse(
         self,
         verb: str,
-        tokens: List[str],
+        tokens: list[str],
         plugin: Plugin,
-        selectors: Dict[str, Dict[str, str]],
-    ) -> Dict[str, Any]:
+        selectors: dict[str, dict[str, str]],
+    ) -> dict[str, Any]:
         """Parse command tokens into state dictionary.
 
         Args:
@@ -96,7 +102,7 @@ class Router:
         Returns:
             State dictionary with parsed values
         """
-        state: Dict[str, Any] = {"verb": verb}
+        state: dict[str, Any] = {"verb": verb}
 
         expectations = plugin.expectations.get(verb, [])
         if not expectations:
@@ -150,9 +156,7 @@ class Router:
 
         return state
 
-    def _match_grammar(
-        self, token: str, field_name: str, plugin: Plugin
-    ) -> Optional[Any]:
+    def _match_grammar(self, token: str, field_name: str, plugin: Plugin) -> Any | None:
         """Match token against plugin grammar for field.
 
         Args:
@@ -237,7 +241,7 @@ class Router:
                 result.append(exp)
         return result
 
-    def _apply_inference(self, state: Dict[str, Any], plugin: Plugin) -> Dict[str, Any]:
+    def _apply_inference(self, state: dict[str, Any], plugin: Plugin) -> dict[str, Any]:
         """Apply plugin inference rules to transform state."""
         for rule in plugin.inference:
             when = rule.get("when", {})
@@ -254,7 +258,7 @@ class Router:
 
         return state
 
-    def _matches_conditions(self, state: Dict, conditions: Dict) -> bool:
+    def _matches_conditions(self, state: dict, conditions: dict) -> bool:
         """Check if state matches all conditions."""
         for key, expected in conditions.items():
             actual = state.get(key)
@@ -277,7 +281,7 @@ class Router:
 
         return True
 
-    def _find_command(self, state: Dict[str, Any], plugin: Plugin) -> Optional[Dict]:
+    def _find_command(self, state: dict[str, Any], plugin: Plugin) -> dict | None:
         """Find command template matching current state."""
         for command in plugin.commands:
             match = command.get("match", {})

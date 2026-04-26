@@ -1,6 +1,7 @@
 """Centralized logging for ALI - plugin-driven environment capture."""
 
 import logging
+import logging.handlers
 import json
 from pathlib import Path
 from datetime import datetime
@@ -17,7 +18,17 @@ class ALILogger:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.registry = registry
 
+        self._cleanup_legacy_logs()
         self._setup_python_logging(verbose)
+
+    def _cleanup_legacy_logs(self):
+        """Remove per-invocation debug_*.log files from pre-0.2.0."""
+        marker = self.log_dir / ".migrated"
+        if marker.exists():
+            return
+        for f in self.log_dir.glob("debug_*.log"):
+            f.unlink()
+        marker.touch()
 
     def _generate_session_id(self) -> str:
         """Generate unique session ID with timestamp and UUID."""
@@ -30,8 +41,10 @@ class ALILogger:
         self.logger = logging.getLogger("ali")
         self.logger.setLevel(logging.DEBUG)
 
-        file_handler = logging.FileHandler(
-            self.log_dir / f"debug_{self.session_id}.log"
+        file_handler = logging.handlers.RotatingFileHandler(
+            self.log_dir / "debug.log",
+            maxBytes=1_000_000,
+            backupCount=3,
         )
         file_handler.setLevel(logging.DEBUG)
         file_formatter = logging.Formatter(
@@ -124,7 +137,3 @@ class ALILogger:
     def debug(self, message: str):
         """Log debug message."""
         self.logger.debug(message)
-
-    def error(self, message: str):
-        """Log error message."""
-        self.logger.error(message)

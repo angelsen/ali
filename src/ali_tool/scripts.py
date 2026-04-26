@@ -3,10 +3,9 @@
 import sys
 import subprocess
 from pathlib import Path
-from typing import List, Optional
 
 
-def execute_script(argv: List[str]) -> int:
+def execute_script(argv: list[str]) -> int:
     """Execute a plugin script.
 
     Args:
@@ -60,7 +59,7 @@ def execute_script(argv: List[str]) -> int:
         return 1
 
 
-def find_script(plugin_name: str, script_name: str) -> Optional[Path]:
+def find_script(plugin_name: str, script_name: str) -> Path | None:
     """Find a script file in a plugin's scripts directory.
 
     Args:

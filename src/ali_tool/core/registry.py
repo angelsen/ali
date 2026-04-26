@@ -1,6 +1,5 @@
 """Service Registry - Tracks plugin services and dependencies."""
 
-from typing import Dict, List
 from pathlib import Path
 from .plugin import Plugin
 
@@ -9,9 +8,9 @@ class ServiceRegistry:
     """Tracks what services plugins provide and require."""
 
     def __init__(self, logger=None):
-        self.plugins: List[Plugin] = []
-        self.providers: Dict[str, List[Plugin]] = {}
-        self.verb_index: Dict[str, List[Plugin]] = {}
+        self.plugins: list[Plugin] = []
+        self.providers: dict[str, list[Plugin]] = {}
+        self.verb_index: dict[str, list[Plugin]] = {}
         self.logger = logger
 
     def load_plugins(self, plugin_dir: Path) -> None:
@@ -51,6 +50,6 @@ class ServiceRegistry:
         if self.logger:
             self.logger.log_plugin_load(plugin.name, True)
 
-    def get_plugins_for_verb(self, verb: str) -> List[Plugin]:
+    def get_plugins_for_verb(self, verb: str) -> list[Plugin]:
         """Get all plugins that handle the given verb."""
         return self.verb_index.get(verb.upper(), [])
