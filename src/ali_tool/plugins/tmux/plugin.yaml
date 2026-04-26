@@ -66,7 +66,7 @@ grammar:
     description: "Any text, pane reference, or stream selector"
 # Vocabulary
 vocabulary:
-  verbs: [GO, KILL, SPLIT, CREATE, WIDTH, HEIGHT, JOIN, SWAP, COPY, ECHO]
+  verbs: [GO, KILL, SPLIT, CREATE, WIDTH, HEIGHT, JOIN, SWAP, COPY, ECHO, LAYOUT, TERMTAP]
 # Expectations
 expectations:
   GO: [target]
@@ -79,6 +79,8 @@ expectations:
   SWAP: [source, "dest?"]
   COPY: [stream]
   ECHO: [stream, "target?"]
+  LAYOUT: ["stream?"]
+  TERMTAP: []
 # Inference
 inference:
   - when: {verb: GO, target: "?"}
@@ -119,6 +121,12 @@ commands:
     exec: "{modal_popup} '{stream_exec} | tmux load-buffer -w'"
   - match: {verb: ECHO, stream_exec: present}
     exec: "{modal_popup} '{stream_exec} | tmux load-buffer -b ali-echo - && tmux paste-buffer -b ali-echo{?target: -t {target}} && tmux delete-buffer -b ali-echo'"
+  - match: {verb: LAYOUT, stream: present}
+    exec: "trelayout -x '{stream}'"
+  - match: {verb: LAYOUT}
+    exec: "tmux display-popup -E -w 50% -h 50% trelayout"
+  - match: {verb: TERMTAP}
+    exec: "tmux display-popup -E -w 80% -h 60% 'termtap companion --popup'"
 # Selectors
 selectors:
   .?:
@@ -139,9 +147,7 @@ services:
   kill_window: "tmux kill-window{?target: -t {target}}"
   join: "tmux join-pane"
   swap: "tmux swap-pane"
-  send_to: "tmux send-keys{?target: -t {target}}"
   modal_popup: "tmux display-popup -w 80% -h 80% -d \"$PWD\" -E"
-  clipboard_load: "tmux load-buffer -w"
   _distribute_script: "python3 {plugin_dir}/scripts/distribute.py"
 # Integration
 integration:

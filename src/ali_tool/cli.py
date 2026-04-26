@@ -4,6 +4,7 @@
 import sys
 import os
 import argparse
+from importlib.metadata import version
 from pathlib import Path
 
 from .core import ServiceRegistry, Router
@@ -14,7 +15,7 @@ EXIT_SUCCESS = 0
 EXIT_ERROR = 1
 EXIT_COMMAND_NOT_FOUND = 127
 
-ALI_VERSION = "2.0.0"
+ALI_VERSION = version("ali-tool")
 
 
 def find_plugins_dir() -> Path:
@@ -192,8 +193,8 @@ def main():
     result = router.execute(command_str)
 
     if logger:
-        tokens = router.last_tokens if hasattr(router, "last_tokens") else None
-        state = router.last_state if hasattr(router, "last_state") else None
+        tokens = router.last_tokens
+        state = router.last_state
         success = not (result.startswith("Error:") or result.startswith("Unknown"))
         logger.log_command(
             command_str,

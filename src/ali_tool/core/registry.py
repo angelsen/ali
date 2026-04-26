@@ -38,16 +38,10 @@ class ServiceRegistry:
         """Register plugin and build service and verb indices."""
         self.plugins.append(plugin)
 
-        if isinstance(plugin.provides, dict):
-            for service_name in plugin.provides:
-                if service_name not in self.providers:
-                    self.providers[service_name] = []
-                self.providers[service_name].append(plugin)
-        elif isinstance(plugin.provides, list):
-            for service_name in plugin.provides:
-                if service_name not in self.providers:
-                    self.providers[service_name] = []
-                self.providers[service_name].append(plugin)
+        for service_name in plugin.provides:
+            if service_name not in self.providers:
+                self.providers[service_name] = []
+            self.providers[service_name].append(plugin)
 
         for verb in plugin.verbs:
             if verb not in self.verb_index:
