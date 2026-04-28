@@ -8,6 +8,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 from .core import ServiceRegistry, Router
+from .core.plugin import Plugin
 from .core.logging import ALILogger
 from .scripts import execute_script
 
@@ -122,25 +123,27 @@ def main():
         print(f"Error: Plugins directory not found: {plugins_dir}", file=sys.stderr)
         sys.exit(EXIT_ERROR)
 
+    # For --init, load all plugins regardless of context (e.g. TMUX env)
+    # since you need to init before you're in that context
+    if args.init:
+        for yaml_path in plugins_dir.glob("*/plugin.yaml"):
+            try:
+                plugin = Plugin(yaml_path)
+                if plugin.name == args.init:
+                    sys.exit(plugin.init())
+            except Exception as e:
+                if plugin.name == args.init:
+                    print(f"Error loading plugin '{args.init}': {e}", file=sys.stderr)
+                    sys.exit(EXIT_ERROR)
+        all_plugins = [p.parent.name for p in plugins_dir.glob("*/plugin.yaml")]
+        print(f"Error: Plugin '{args.init}' not found", file=sys.stderr)
+        print(f"Available plugins: {', '.join(sorted(all_plugins))}", file=sys.stderr)
+        sys.exit(EXIT_ERROR)
+
     registry.load_plugins(plugins_dir)
 
     if logger:
         logger.registry = registry
-
-    if args.init:
-        found = False
-        for plugin in registry.plugins:
-            if plugin.name == args.init:
-                found = True
-                exit_code = plugin.init()
-                sys.exit(exit_code if exit_code == 0 else EXIT_ERROR)
-        if not found:
-            print(f"Error: Plugin '{args.init}' not found", file=sys.stderr)
-            print(
-                f"Available plugins: {', '.join(p.name for p in registry.plugins)}",
-                file=sys.stderr,
-            )
-            sys.exit(EXIT_ERROR)
 
     if args.list_services:
         print("Available services:", file=sys.stderr)
