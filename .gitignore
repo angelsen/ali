@@ -16,3 +16,4 @@ wheels/
 
 # Misc
 _resources/
+.claude/
