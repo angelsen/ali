@@ -132,7 +132,7 @@ def main():
                 if plugin.name == args.init:
                     sys.exit(plugin.init())
             except Exception as e:
-                if plugin.name == args.init:
+                if yaml_path.parent.name == args.init:
                     print(f"Error loading plugin '{args.init}': {e}", file=sys.stderr)
                     sys.exit(EXIT_ERROR)
         all_plugins = [p.parent.name for p in plugins_dir.glob("*/plugin.yaml")]
