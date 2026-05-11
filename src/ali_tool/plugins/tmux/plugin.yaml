@@ -66,7 +66,7 @@ grammar:
     description: "Any text, pane reference, or stream selector"
 # Vocabulary
 vocabulary:
-  verbs: [GO, KILL, SPLIT, CREATE, WIDTH, HEIGHT, JOIN, SWAP, COPY, ECHO, LAYOUT, TERMTAP]
+  verbs: [GO, KILL, SPLIT, CREATE, WIDTH, HEIGHT, JOIN, SWAP, COPY, ECHO, LAYOUT, TERMTAP, LAZYGIT, PWD]
 # Expectations
 expectations:
   GO: [target]
@@ -81,6 +81,8 @@ expectations:
   ECHO: [stream, "target?"]
   LAYOUT: ["stream?"]
   TERMTAP: []
+  LAZYGIT: []
+  PWD: []
 # Inference
 inference:
   - when: {verb: GO, target: "?"}
@@ -118,7 +120,7 @@ commands:
   - match: {verb: SWAP, source: present}
     exec: "{swap} -s {source}{?dest: -t {dest}}"
   - match: {verb: COPY, stream_exec: present}
-    exec: "{modal_popup} '{stream_exec} | tmux load-buffer -w'"
+    exec: "{modal_popup} '{stream_exec} | clip'"
   - match: {verb: ECHO, stream_exec: present}
     exec: "{modal_popup} '{stream_exec} | tmux load-buffer -b ali-echo - && tmux paste-buffer -b ali-echo{?target: -t {target}} && tmux delete-buffer -b ali-echo'"
   - match: {verb: LAYOUT, stream: present}
@@ -127,6 +129,10 @@ commands:
     exec: "tmux display-popup -E -w 50% -h 50% trelayout"
   - match: {verb: TERMTAP}
     exec: "tmux display-popup -E -w 80% -h 60% 'termtap companion --popup'"
+  - match: {verb: LAZYGIT}
+    exec: "{modal_popup} 'lazygit'"
+  - match: {verb: PWD}
+    exec: "printf '%s' \"$PWD\" | clip"
 # Selectors
 selectors:
   .?:
