@@ -71,7 +71,7 @@ vocabulary:
 expectations:
   GO: [target]
   KILL: ["object?", "target?"]
-  SPLIT: ["target?", "direction?=right", "modifier?"]
+  SPLIT: ["target?", "direction?=down", "modifier?"]
   CREATE: [object, "direction?"]
   WIDTH: [panes, "clause?", "fraction?"]
   HEIGHT: [panes, "clause?", "fraction?"]
@@ -143,7 +143,7 @@ selectors:
     exec: "{choose_window}"
 # Services
 services:
-  split: "tmux split-window{?modifier: -f}{?target: -t {target}} {direction[left:-h -b,right:-h,up:-v -b,down:-v,_:-h]}"
+  split: "tmux split-window{?modifier: -f}{?target: -t {target}} {direction[left:-h -b,right:-h,up:-v -b,down:-v,_:-v]}"
   split_popup: "tmux display-popup -w 80% -h 80% -d \"$PWD\" -E"
   display_panes: "tmux display-panes"
   choose_window: "tmux choose-window"

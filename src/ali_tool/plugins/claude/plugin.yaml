@@ -1,0 +1,34 @@
+# Metadata
+name: claude
+version: 1.0
+description: Fork the current Claude Code session into a new pane
+requires:
+  - pane
+# Grammar
+grammar:
+  model:
+    values: [opus, sonnet, haiku, fable]
+    transform: lower
+    description: "Model alias"
+  direction:
+    values: [left, right, up, down, pop]
+    transform: lower
+    description: "Split direction for the forked session (pop = popup)"
+  modifier:
+    values: [full]
+    transform: lower
+    description: "Split modifier (full = full-width/height using -f flag)"
+# Vocabulary
+vocabulary:
+  verbs: [FORK]
+# Expectations
+expectations:
+  FORK: ["model?", "direction?=down", "modifier?"]
+# Commands
+commands:
+  - match: {verb: FORK, direction: pop}
+    exec: "{split_popup} 'claude --continue --fork-session{?model: --model {model}}'"
+  - match: {verb: FORK}
+    exec: "{split} 'claude --continue --fork-session{?model: --model {model}}'"
+# Services
+services: {}
