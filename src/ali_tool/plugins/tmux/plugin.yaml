@@ -124,9 +124,9 @@ commands:
   - match: {verb: ECHO, stream_exec: present}
     exec: "{modal_popup} '{stream_exec} | tmux load-buffer -b ali-echo - && tmux paste-buffer -b ali-echo{?target: -t {target}} && tmux delete-buffer -b ali-echo'"
   - match: {verb: LAYOUT, stream: present}
-    exec: "trelayout -x '{stream}'"
+    exec: "trelayout -t {origin_pane} -x '{stream}'"
   - match: {verb: LAYOUT}
-    exec: "tmux display-popup -E -w 50% -h 50% trelayout"
+    exec: "{modal_popup} 'trelayout -t \"$ORIGIN_PANE\"'"
   - match: {verb: TERMTAP}
     exec: "tmux display-popup -E -w 80% -h 60% 'termtap companion --popup'"
   - match: {verb: LAZYGIT}
