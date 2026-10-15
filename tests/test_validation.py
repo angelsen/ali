@@ -51,9 +51,18 @@ def test_unknown_placeholder_fails_load(tmp_path, body, template):
     assert str(exc.value) == expected
 
     result = subprocess.run(
-        [sys.executable, "-m", "ali_tool.cli", "--quiet", "--plugins-dir", str(plugins), "PING"],
+        [
+            sys.executable,
+            "-m",
+            "ali_tool.cli",
+            "--quiet",
+            "--plugins-dir",
+            str(plugins),
+            "PING",
+        ],
         capture_output=True,
         text=True,
+        check=False,
     )
     assert result.returncode != 0
     assert result.stdout == ""
@@ -78,4 +87,6 @@ def test_shipped_plugins_load(monkeypatch, tmux):
     registry = ServiceRegistry()
     registry.load_plugins(PLUGINS_DIR)
     names = {plugin.name for plugin in registry.plugins}
-    assert names == ({"broot", "claude", "micro", "tmux"} if tmux else {"broot", "claude", "micro"})
+    assert names == (
+        {"broot", "claude", "micro", "tmux"} if tmux else {"broot", "claude", "micro"}
+    )

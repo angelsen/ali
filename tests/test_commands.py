@@ -26,4 +26,4 @@ def test_printed_command(router, command, expected):
     assert not any(ch in printed for ch in "{}")
     assert "ORIGIN_PANE= " not in printed and "ORIGIN_WINDOW= " not in printed
     assert "ORIGIN_SESSION= " not in printed and not printed.endswith("=")
-    assert subprocess.run(["sh", "-n", "-c", printed]).returncode == 0
+    assert subprocess.run(["sh", "-n", "-c", printed], check=False).returncode == 0
