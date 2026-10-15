@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .core import ServiceRegistry, Router
 from .core.plugin import Plugin
+from .core.resolver import PluginError
 from .core.logging import ALILogger
 from .scripts import execute_script
 
@@ -140,7 +141,12 @@ def main():
         print(f"Available plugins: {', '.join(sorted(all_plugins))}", file=sys.stderr)
         sys.exit(EXIT_ERROR)
 
-    registry.load_plugins(plugins_dir)
+    try:
+        registry.load_plugins(plugins_dir)
+    except PluginError as e:
+        for line in str(e).splitlines():
+            print(f"Error: {line}", file=sys.stderr)
+        sys.exit(EXIT_ERROR)
 
     if logger:
         logger.registry = registry

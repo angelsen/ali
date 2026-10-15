@@ -3,7 +3,7 @@
 import shlex
 import re
 from typing import Any
-from .plugin import Plugin
+from .plugin import Plugin, parse_expectations
 from .registry import ServiceRegistry
 from .resolver import (
     resolve_command,
@@ -73,7 +73,7 @@ class Router:
         if not command:
             expectations = plugin.expectations.get(verb, [])
             if expectations:
-                parsed_exp = self._parse_expectations(expectations)
+                parsed_exp = parse_expectations(expectations)
                 required = [
                     e["field"] for e in parsed_exp if not e.get("optional", False)
                 ]
@@ -110,7 +110,7 @@ class Router:
                 state["args"] = tokens
             return state
 
-        parsed_expectations = self._parse_expectations(expectations)
+        parsed_expectations = parse_expectations(expectations)
 
         token_index = 0
         for exp in parsed_expectations:
@@ -220,26 +220,6 @@ class Router:
                 return token
 
         return None
-
-    def _parse_expectations(self, expectations):
-        """Parse expectations into normalized format."""
-        result = []
-        for exp in expectations:
-            if isinstance(exp, str):
-                if "=" in exp:
-                    field_part, default = exp.split("=", 1)
-                    field = field_part.rstrip("?")
-                    optional = field_part.endswith("?")
-                    result.append(
-                        {"field": field, "optional": optional, "default": default}
-                    )
-                else:
-                    optional = exp.endswith("?")
-                    field = exp.rstrip("?")
-                    result.append({"field": field, "optional": optional})
-            elif isinstance(exp, dict):
-                result.append(exp)
-        return result
 
     def _apply_inference(self, state: dict[str, Any], plugin: Plugin) -> dict[str, Any]:
         """Apply plugin inference rules to transform state."""

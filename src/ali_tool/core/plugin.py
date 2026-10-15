@@ -7,6 +7,27 @@ import yaml
 from pathlib import Path
 
 
+def parse_expectations(expectations):
+    """Parse expectations into normalized format."""
+    result = []
+    for exp in expectations:
+        if isinstance(exp, str):
+            if "=" in exp:
+                field_part, default = exp.split("=", 1)
+                field = field_part.rstrip("?")
+                optional = field_part.endswith("?")
+                result.append(
+                    {"field": field, "optional": optional, "default": default}
+                )
+            else:
+                optional = exp.endswith("?")
+                field = exp.rstrip("?")
+                result.append({"field": field, "optional": optional})
+        elif isinstance(exp, dict):
+            result.append(exp)
+    return result
+
+
 class Plugin:
     """A plugin loaded from YAML. Just data, no logic."""
 

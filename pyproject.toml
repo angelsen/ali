@@ -16,3 +16,6 @@ build-backend = "uv_build"
 
 [tool.basedpyright]
 typeCheckingMode = "standard"
+
+[dependency-groups]
+dev = ["pytest"]

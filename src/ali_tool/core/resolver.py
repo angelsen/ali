@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from dataclasses import dataclass
-from .plugin import Plugin
-from .registry import ServiceRegistry
+from .plugin import Plugin, parse_expectations
+
+if TYPE_CHECKING:
+    from .registry import ServiceRegistry
 
 
 @dataclass
@@ -274,9 +276,13 @@ def resolve_command(
 
 def collect_service_templates(registry: ServiceRegistry) -> dict[str, str]:
     """Collect all service templates from plugins."""
+    return _service_templates(registry.plugins)
+
+
+def _service_templates(plugins: list[Plugin]) -> dict[str, str]:
     templates = {}
 
-    for plugin in registry.plugins:
+    for plugin in plugins:
         plugin_services = plugin.config.get("services", {})
 
         for service_name, service_def in plugin_services.items():
@@ -344,3 +350,67 @@ def substitute(template: str, context: dict[str, Any]) -> str:
     resolver = TemplateResolver(context)
     result = resolver.resolve(nodes)
     return result.strip()
+
+
+class PluginError(Exception):
+    """A plugin template names a placeholder that can never be resolved."""
+
+
+def validate_templates(plugins: list[Plugin]) -> list[str]:
+    """Return one error per placeholder no resolution context can supply."""
+    services = _service_templates(plugins)
+    fields = {"plugin_dir"}
+    for plugin in plugins:
+        fields |= _state_fields(plugin)
+
+    errors = []
+    for plugin in plugins:
+        # Mirrors resolve_command: commands see their plugin's state plus services,
+        # services see any plugin's state but no services, selectors see only services.
+        known = _state_fields(plugin) | {"plugin_dir"} | services.keys()
+        for i, command in enumerate(plugin.commands, 1):
+            errors += _check(plugin, f"command {i} exec", command.get("exec", ""), known)
+        for name, template in _service_templates([plugin]).items():
+            errors += _check(plugin, f"service '{name}'", template, fields)
+        for name, selector in plugin.selectors.items():
+            errors += _check(
+                plugin, f"selector '{name}' exec", selector.get("exec", ""), services.keys()
+            )
+    return errors
+
+
+def _state_fields(plugin: Plugin) -> set[str]:
+    """Names Router._parse, Router._apply_inference and expand_selectors can set."""
+    fields = {"verb", "args"}
+    for expectations in plugin.expectations.values():
+        fields |= {exp["field"] for exp in parse_expectations(expectations)}
+    for rule in plugin.inference:
+        fields |= set(rule.get("set", {}))
+    return fields | {f"{field}_exec" for field in fields}
+
+
+def _check(plugin: Plugin, where: str, template: str, known) -> list[str]:
+    try:
+        names = _placeholder_names(TemplateParser(template).parse())
+    except ValueError as e:
+        return [f"plugin '{plugin.name}': {where} {template!r}: {e}"]
+    return [
+        f"plugin '{plugin.name}': {where} {template!r}: unknown placeholder '{name}'"
+        for name in sorted(names - set(known))
+    ]
+
+
+def _placeholder_names(nodes: list[Node]) -> set[str]:
+    names = set()
+    for node in nodes:
+        if isinstance(node, Variable):
+            names.add(node.name)
+        elif isinstance(node, ArrayLookup):
+            names.add(node.var)
+        elif isinstance(node, Conditional):
+            names.add(node.var)
+            names |= _placeholder_names(node.then_part)
+            names |= _placeholder_names(node.else_part or [])
+    # `{}` names nothing; micro's `xargs -I {}` templates contain it.
+    names.discard("")
+    return names
