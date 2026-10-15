@@ -2,11 +2,12 @@
 
 format:
 	@echo "Formatting Python files..."
-	@ruff format src/ali/
+	@uv run ruff format src/ali_tool/
 	@echo "Formatting YAML files..."
-	@yamlfmt src/ali/
+	@yamlfmt src/ali_tool/
 	@echo "✓ Formatting complete"
 
 check:
-	@ruff check src/ali/
-	@basedpyright src/ali/
+	@uv run ruff check src/ali_tool/
+	@uv run basedpyright src/ali_tool/
+	@uv run pytest -q

@@ -18,4 +18,4 @@ build-backend = "uv_build"
 typeCheckingMode = "standard"
 
 [dependency-groups]
-dev = ["pytest"]
+dev = ["pytest", "ruff"]
