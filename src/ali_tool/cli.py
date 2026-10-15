@@ -1,16 +1,15 @@
-#!/usr/bin/env python3
 """ALI CLI - Main entry point."""
 
-import sys
-import os
 import argparse
+import os
+import sys
 from importlib.metadata import version
 from pathlib import Path
 
-from .core import ServiceRegistry, Router
+from .core import Router, ServiceRegistry
+from .core.logging import ALILogger
 from .core.plugin import Plugin
 from .core.resolver import PluginError
-from .core.logging import ALILogger
 from .scripts import execute_script
 
 EXIT_SUCCESS = 0
@@ -132,7 +131,7 @@ def main():
                 plugin = Plugin(yaml_path)
                 if plugin.name == args.init:
                     sys.exit(plugin.init())
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - a broken unrelated plugin must not block --init
                 if yaml_path.parent.name == args.init:
                     print(f"Error loading plugin '{args.init}': {e}", file=sys.stderr)
                     sys.exit(EXIT_ERROR)
@@ -204,7 +203,7 @@ def main():
     if logger:
         tokens = router.last_tokens
         state = router.last_state
-        success = not (result.startswith("Error:") or result.startswith("Unknown"))
+        success = not result.startswith(("Error:", "Unknown"))
         logger.log_command(
             command_str,
             tokens=tokens,
@@ -214,7 +213,7 @@ def main():
             success=success,
         )
 
-    if result.startswith("Error:") or result.startswith("Unknown"):
+    if result.startswith(("Error:", "Unknown")):
         print(result, file=sys.stderr)
         exit_code = (
             EXIT_COMMAND_NOT_FOUND if result.startswith("Unknown") else EXIT_ERROR

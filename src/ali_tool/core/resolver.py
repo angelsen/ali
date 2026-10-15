@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
 from .plugin import Plugin, parse_expectations
 
 if TYPE_CHECKING:
@@ -385,12 +386,17 @@ def validate_templates(plugins: list[Plugin]) -> list[str]:
         # services see any plugin's state but no services, selectors see only services.
         known = _state_fields(plugin) | base | services.keys()
         for i, command in enumerate(plugin.commands, 1):
-            errors += _check(plugin, f"command {i} exec", command.get("exec", ""), known)
+            errors += _check(
+                plugin, f"command {i} exec", command.get("exec", ""), known
+            )
         for name, template in _service_templates([plugin]).items():
             errors += _check(plugin, f"service '{name}'", template, fields)
         for name, selector in plugin.selectors.items():
             errors += _check(
-                plugin, f"selector '{name}' exec", selector.get("exec", ""), services.keys()
+                plugin,
+                f"selector '{name}' exec",
+                selector.get("exec", ""),
+                services.keys(),
             )
     return errors
 

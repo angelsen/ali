@@ -4,6 +4,6 @@ from .registry import ServiceRegistry
 from .router import Router
 
 __all__ = [
-    "ServiceRegistry",
     "Router",
+    "ServiceRegistry",
 ]

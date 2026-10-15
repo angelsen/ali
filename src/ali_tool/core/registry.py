@@ -1,6 +1,7 @@
 """Service Registry - Tracks plugin services and dependencies."""
 
 from pathlib import Path
+
 from .plugin import Plugin
 from .resolver import PluginError, validate_templates
 
@@ -24,7 +25,7 @@ class ServiceRegistry:
         for yaml_path in plugin_dir.glob("*/plugin.yaml"):
             try:
                 plugins.append(Plugin(yaml_path))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - one broken plugin must not stop the rest loading
                 if self.logger:
                     self.logger.log_plugin_load(yaml_path.parent.name, False, str(e))
 

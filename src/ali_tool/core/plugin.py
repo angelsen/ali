@@ -1,10 +1,11 @@
 """Plugin - Loads and holds plugin YAML configuration."""
 
-import sys
 import shutil
 import subprocess
-import yaml
+import sys
 from pathlib import Path
+
+import yaml
 
 
 def parse_expectations(expectations):
@@ -99,14 +100,16 @@ class Plugin:
             try:
                 shutil.copy(source, target)
                 print(f"✓ Copied {file_info['source']} to {target}", file=sys.stderr)
-            except Exception as e:
+            except OSError as e:
                 print(f"✗ Failed to copy {file_info['source']}: {e}", file=sys.stderr)
 
         # Check if already integrated
         check_cmd = self.integration.get("check_command")
         already_integrated = False
         if check_cmd:
-            result = subprocess.run(check_cmd, shell=True, capture_output=True)
+            result = subprocess.run(
+                check_cmd, shell=True, capture_output=True, check=False
+            )
             already_integrated = result.returncode == 0
 
         if already_integrated:
@@ -128,7 +131,7 @@ class Plugin:
                         with open(target_file, "a") as f:
                             f.write(f"\n# ALI integration\n{line}\n")
                         print(f"✓ Added to {target_file}", file=sys.stderr)
-                    except Exception as e:
+                    except OSError as e:
                         print(f"✗ Failed to write: {e}", file=sys.stderr)
                         print("\nManual setup:", file=sys.stderr)
                         print(f"  echo '{line}' >> {target_file}", file=sys.stderr)

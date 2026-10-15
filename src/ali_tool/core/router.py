@@ -1,15 +1,16 @@
 """Command Router - Parses commands and orchestrates resolution."""
 
-import shlex
 import re
+import shlex
 from typing import Any
+
 from .plugin import Plugin, parse_expectations
 from .registry import ServiceRegistry
 from .resolver import (
-    resolve_command,
     collect_selectors,
     collect_service_templates,
     expand_selectors,
+    resolve_command,
 )
 
 

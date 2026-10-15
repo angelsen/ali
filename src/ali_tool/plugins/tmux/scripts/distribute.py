@@ -160,7 +160,7 @@ def main():
     # Validate that distribution is possible
     if args.dimension == "height":
         # Check if all panes are in same row (same top coordinate)
-        unique_tops = set(p["top"] for p in all_panes.values())
+        unique_tops = {p["top"] for p in all_panes.values()}
         if len(unique_tops) == 1:
             print(
                 "Error: Cannot distribute height - all panes are in a single row",
@@ -170,7 +170,7 @@ def main():
 
     elif args.dimension == "width":
         # Check if all panes are in same column (same left coordinate)
-        unique_lefts = set(p["left"] for p in all_panes.values())
+        unique_lefts = {p["left"] for p in all_panes.values()}
         if len(unique_lefts) == 1:
             print(
                 "Error: Cannot distribute width - all panes are in a single column",

@@ -1,7 +1,7 @@
 """Script executor - Simple pass-through to plugin scripts."""
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -48,13 +48,13 @@ def execute_script(argv: list[str]) -> int:
         else:
             cmd = [str(script_file)] + script_args
 
-        result = subprocess.run(cmd)
+        result = subprocess.run(cmd, check=False)
         return result.returncode
 
     except ValueError:
         print("Error: --plugin-script not found in arguments", file=sys.stderr)
         return 1
-    except Exception as e:
+    except OSError as e:
         print(f"Error executing script: {e}", file=sys.stderr)
         return 1
 
