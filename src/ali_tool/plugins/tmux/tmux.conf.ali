@@ -8,7 +8,8 @@
 # Example: GO .2, SPLIT left, WIDTH 012
 bind-key a command-prompt -p "ALI> " \
   "run-shell 'cd #{pane_current_path} && \
+    export \
     TMUX_PANE=#{pane_id} \
     TMUX_WINDOW=#{window_id} \
-    TMUX_SESSION=#{session_name} \
+    TMUX_SESSION=#{session_name} && \
     ali \"%%\" | sh | sh'"
