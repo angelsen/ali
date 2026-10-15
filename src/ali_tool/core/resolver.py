@@ -244,6 +244,21 @@ class TemplateResolver:
         return node.default if node.default is not None else ""
 
 
+def _from_env_or_tmux(var: str, fmt: str) -> str:
+    # Braces are printf octal escapes so printed commands stay free of `{`/`}`,
+    # which tests treat as unresolved template residue.
+    query = f"""tmux display -p -t "$TMUX_PANE" "$(printf '#\\173{fmt}\\175')\""""
+    return f'"$(test -n "${var}" && printf %s "${var}" || {query})"'
+
+
+# Shell expressions, not values: ali prints them and the shell running the command evaluates them.
+ORIGIN_CONTEXT = {
+    "origin_pane": '"$TMUX_PANE"',
+    "origin_window": _from_env_or_tmux("TMUX_WINDOW", "window_id"),
+    "origin_session": _from_env_or_tmux("TMUX_SESSION", "session_name"),
+}
+
+
 def resolve_command(
     state: dict[str, Any],
     plugin: Plugin,
@@ -259,7 +274,7 @@ def resolve_command(
 
     # First resolve services that might reference state variables
     resolved_services = {}
-    base_context = {**state, "plugin_dir": plugin_dir}
+    base_context = {**state, "plugin_dir": plugin_dir, **ORIGIN_CONTEXT}
 
     for name, service_template in services.items():
         # Only resolve if it contains variables from state
@@ -359,7 +374,8 @@ class PluginError(Exception):
 def validate_templates(plugins: list[Plugin]) -> list[str]:
     """Return one error per placeholder no resolution context can supply."""
     services = _service_templates(plugins)
-    fields = {"plugin_dir"}
+    base = {"plugin_dir", *ORIGIN_CONTEXT}
+    fields = set(base)
     for plugin in plugins:
         fields |= _state_fields(plugin)
 
@@ -367,7 +383,7 @@ def validate_templates(plugins: list[Plugin]) -> list[str]:
     for plugin in plugins:
         # Mirrors resolve_command: commands see their plugin's state plus services,
         # services see any plugin's state but no services, selectors see only services.
-        known = _state_fields(plugin) | {"plugin_dir"} | services.keys()
+        known = _state_fields(plugin) | base | services.keys()
         for i, command in enumerate(plugin.commands, 1):
             errors += _check(plugin, f"command {i} exec", command.get("exec", ""), known)
         for name, template in _service_templates([plugin]).items():

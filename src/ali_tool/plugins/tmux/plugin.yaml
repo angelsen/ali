@@ -143,17 +143,17 @@ selectors:
     exec: "{choose_window}"
 # Services
 services:
-  split: "tmux split-window{?modifier: -f}{?target: -t {target}} -e ORIGIN_PANE=\"$TMUX_PANE\" -e ORIGIN_WINDOW=\"$TMUX_WINDOW\" -e ORIGIN_SESSION=\"$TMUX_SESSION\" {direction[left:-h -b,right:-h,up:-v -b,down:-v,_:-v]}"
-  split_popup: "tmux display-popup -w 80% -h 80% -d \"$PWD\" -E -e ORIGIN_PANE=\"$TMUX_PANE\" -e ORIGIN_WINDOW=\"$TMUX_WINDOW\" -e ORIGIN_SESSION=\"$TMUX_SESSION\""
+  split: "tmux split-window{?modifier: -f}{?target: -t {target}} -e ORIGIN_PANE={origin_pane} -e ORIGIN_WINDOW={origin_window} -e ORIGIN_SESSION={origin_session} {direction[left:-h -b,right:-h,up:-v -b,down:-v,_:-v]}"
+  split_popup: "tmux display-popup -w 80% -h 80% -d \"$PWD\" -E -e ORIGIN_PANE={origin_pane} -e ORIGIN_WINDOW={origin_window} -e ORIGIN_SESSION={origin_session}"
   display_panes: "tmux display-panes"
   choose_window: "tmux choose-window"
   select_pane: "tmux select-pane -t"
-  new_window: "tmux new-window -e ORIGIN_PANE=\"$TMUX_PANE\" -e ORIGIN_WINDOW=\"$TMUX_WINDOW\" -e ORIGIN_SESSION=\"$TMUX_SESSION\""
+  new_window: "tmux new-window -e ORIGIN_PANE={origin_pane} -e ORIGIN_WINDOW={origin_window} -e ORIGIN_SESSION={origin_session}"
   kill_pane: "tmux kill-pane{?target: -t {target}}"
   kill_window: "tmux kill-window{?target: -t {target}}"
   join: "tmux join-pane"
   swap: "tmux swap-pane"
-  modal_popup: "tmux display-popup -w 80% -h 80% -d \"$PWD\" -E -e ORIGIN_PANE=\"$TMUX_PANE\" -e ORIGIN_WINDOW=\"$TMUX_WINDOW\" -e ORIGIN_SESSION=\"$TMUX_SESSION\""
+  modal_popup: "tmux display-popup -w 80% -h 80% -d \"$PWD\" -E -e ORIGIN_PANE={origin_pane} -e ORIGIN_WINDOW={origin_window} -e ORIGIN_SESSION={origin_session}"
   _distribute_script: "python3 {plugin_dir}/scripts/distribute.py"
 # Integration
 integration:
