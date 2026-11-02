@@ -8,6 +8,9 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+COMMAND_LOG_MAX_BYTES = 2_000_000
+COMMAND_LOG_BACKUPS = 3
+
 
 class ALILogger:
     """Structured logging for pattern analysis."""
@@ -20,6 +23,12 @@ class ALILogger:
 
         self._cleanup_legacy_logs()
         self._setup_python_logging(verbose)
+        # Not attached to a logger: a per-instance handler can't stack duplicates across ALILogger() calls.
+        self._commands_handler = logging.handlers.RotatingFileHandler(
+            self.log_dir / "commands.jsonl",
+            maxBytes=COMMAND_LOG_MAX_BYTES,
+            backupCount=COMMAND_LOG_BACKUPS,
+        )
 
     def _cleanup_legacy_logs(self):
         """Remove per-invocation debug_*.log files from pre-0.2.0."""
@@ -111,8 +120,7 @@ class ALILogger:
             "env": self._collect_plugin_env(),
         }
 
-        with open(self.log_dir / "commands.jsonl", "a") as f:
-            f.write(json.dumps(event) + "\n")
+        self._commands_handler.handle(logging.makeLogRecord({"msg": json.dumps(event)}))
 
         if success:
             self.logger.debug(f"Command: {command_str} -> {result}")
