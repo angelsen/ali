@@ -37,7 +37,9 @@ def test_printed_command(router, command, expected):
 
 def test_selector_file_keeps_xargs_placeholder(router):
     printed = router.execute("EDIT br?")
-    assert printed == f"broot | xargs -I {{}} tmux split-window {ORIGIN} -h 'micro {{}}'"
+    assert (
+        printed == f"broot | xargs -I {{}} tmux split-window {ORIGIN} -h 'micro {{}}'"
+    )
     assert subprocess.run(["sh", "-n", "-c", printed], check=False).returncode == 0
 
 
