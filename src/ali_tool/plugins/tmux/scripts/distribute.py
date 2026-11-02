@@ -2,10 +2,31 @@
 """Distribute tmux panes evenly or by fraction with column/row awareness."""
 
 import argparse
+import json
 import os
 import subprocess
 import sys
 from collections import defaultdict
+
+PANE_FORMAT = (
+    "#{pane_index}:#{pane_id}:#{pane_width}:#{pane_height}:#{pane_left}:#{pane_top}"
+)
+
+
+class TmuxError(Exception):
+    pass
+
+
+def tmux(*args):
+    try:
+        result = subprocess.run(
+            ["tmux", *args], capture_output=True, text=True, timeout=1, check=False
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        raise TmuxError(f"tmux unavailable: {e}") from e
+    if result.returncode != 0:
+        raise TmuxError(result.stderr.strip() or "tmux failed")
+    return result.stdout.strip()
 
 
 def target_args():
@@ -14,42 +35,71 @@ def target_args():
     return ["-t", pane] if pane else []
 
 
-def get_detailed_pane_info():
-    """Get detailed pane information from tmux."""
-    try:
-        output = subprocess.check_output(
-            [
-                "tmux",
-                "list-panes",
-                *target_args(),
-                "-F",
-                "#{pane_index}:#{pane_id}:#{pane_width}:#{pane_height}:#{pane_left}:#{pane_top}",
-            ],
-            timeout=1,
-            text=True,
-        )
+def parse_panes(text):
+    # Digits are single-pane shorthand ("012"); commas allow multi-digit indices ("2,10").
+    return text.split(",") if "," in text else list(text)
 
-        panes = {}
-        for line in output.strip().split("\n"):
-            if line:
-                parts = line.split(":")
-                idx = parts[0]
-                panes[idx] = {
-                    "index": idx,
-                    "id": parts[1],
-                    "width": int(parts[2]),
-                    "height": int(parts[3]),
-                    "left": int(parts[4]),
-                    "top": int(parts[5]),
-                    "right": int(parts[4]) + int(parts[2]),
-                    "bottom": int(parts[5]) + int(parts[3]),
-                }
-        return panes
-    except subprocess.CalledProcessError:
-        return {}
-    except subprocess.TimeoutExpired:
-        print("Error: tmux command timed out", file=sys.stderr)
-        return {}
+
+def parse_fraction(text):
+    try:
+        num, denom = (int(part) for part in text.split("/"))
+    except ValueError:
+        raise ValueError(f"Invalid fraction format: {text}") from None
+    if denom == 0 or not 0 < num <= denom:
+        raise ValueError(f"Fraction out of range: {text}")
+    return num, denom
+
+
+def get_detailed_pane_info():
+    """Get tiled pane geometry from tmux, keyed by pane index."""
+    output = tmux(
+        "list-panes",
+        *target_args(),
+        "-f",
+        "#{!=:#{pane_floating_flag},1}",
+        "-F",
+        PANE_FORMAT,
+    )
+    panes = {}
+    for line in output.splitlines():
+        idx, pid, width, height, left, top = line.split(":")
+        panes[idx] = {
+            "index": idx,
+            "id": pid,
+            "width": int(width),
+            "height": int(height),
+            "left": int(left),
+            "top": int(top),
+            "right": int(left) + int(width),
+            "bottom": int(top) + int(height),
+        }
+    return panes
+
+
+def find_enclosing_cell(node, pane_id, cell_type, enclosing=None):
+    """Nearest ancestor cell of cell_type ("h" = side by side, "v" = stacked) holding pane_id."""
+    if node["t"] == "p":
+        return enclosing if node.get("I") == pane_id else None
+    if node["t"] == cell_type:
+        enclosing = node
+    for child in node["c"]:
+        found = find_enclosing_cell(child, pane_id, cell_type, enclosing)
+        if found:
+            return found
+    return None
+
+
+def available_size(dimension, pane_id):
+    """Size of the cell a fraction applies to, not the whole window, for nested splits."""
+    window_size = int(tmux("display", "-p", *target_args(), f"#{{window_{dimension}}}"))
+    try:
+        layout = json.loads(tmux("display", "-p", *target_args(), "#{window_layout}"))
+        cell = find_enclosing_cell(
+            layout["L"], pane_id, "h" if dimension == "width" else "v"
+        )
+        return cell["w" if dimension == "width" else "h"] if cell else window_size
+    except (ValueError, KeyError, TypeError):
+        return window_size
 
 
 def group_panes_by_position(panes, dimension):
@@ -98,19 +148,26 @@ def find_row_panes(all_panes, selected_panes):
     return row
 
 
+def are_all_siblings(all_panes, selected_panes, dimension):
+    """True when the selection is every pane sharing one column (height) or row (width)."""
+    first = selected_panes[0]
+    if dimension == "height":
+        siblings = {
+            p["id"]
+            for p in all_panes.values()
+            if p["left"] == first["left"] and p["width"] == first["width"]
+        }
+    else:
+        siblings = {
+            p["id"]
+            for p in all_panes.values()
+            if p["top"] == first["top"] and p["height"] == first["height"]
+        }
+    return siblings == {p["id"] for p in selected_panes}
+
+
 def main():
     """Main entry point for tmux pane distribution."""
-    # Check if we're in a tmux session
-    try:
-        subprocess.check_output(["tmux", "info"], stderr=subprocess.DEVNULL, timeout=1)
-    except (
-        subprocess.CalledProcessError,
-        subprocess.TimeoutExpired,
-        FileNotFoundError,
-    ):
-        print("Error: Not in a tmux session or tmux not available", file=sys.stderr)
-        return 1
-
     parser = argparse.ArgumentParser(
         description="Distribute tmux panes with column/row awareness"
     )
@@ -122,7 +179,10 @@ def main():
         help="Width or height",
     )
     parser.add_argument(
-        "--panes", "-p", required=True, help="Pane indices: 012 for panes 0,1,2"
+        "--panes",
+        "-p",
+        required=True,
+        help="Pane indices: 012 for panes 0,1,2 or 2,10,11 for multi-digit",
     )
     parser.add_argument(
         "--fraction",
@@ -138,66 +198,46 @@ def main():
 
     args = parser.parse_args()
 
-    selected_indices = list(args.panes)
-
-    dimension_key = f"window_{args.dimension}"
     try:
-        output = subprocess.check_output(
-            ["tmux", "display", "-p", *target_args(), f"#{{{dimension_key}}}"],
-            timeout=1,
-            text=True,
-        ).strip()
-        window_size = int(output)
-    except subprocess.CalledProcessError:
-        print(f"Error: Could not get window {args.dimension}", file=sys.stderr)
+        return distribute(args)
+    except TmuxError as e:
+        print(f"Error: {e}", file=sys.stderr)
         return 1
-    except subprocess.TimeoutExpired:
-        print("Error: tmux command timed out", file=sys.stderr)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
         return 1
+
+
+def distribute(args):
+    # Zoom reports the zoomed pane at full window size and leaves the others stale.
+    if tmux("display", "-p", *target_args(), "#{window_zoomed_flag}") == "1":
+        raise TmuxError("window is zoomed - unzoom before resizing")
+
+    fraction = parse_fraction(args.fraction) if args.fraction else None
 
     all_panes = get_detailed_pane_info()
     if not all_panes:
-        print("Error: Could not get pane information", file=sys.stderr)
-        return 1
+        raise TmuxError("Could not get pane information")
 
     selected_panes = []
-    for idx in selected_indices:
+    for idx in parse_panes(args.panes):
         if idx not in all_panes:
-            print(f"Error: Pane {idx} does not exist", file=sys.stderr)
-            return 1
+            raise TmuxError(f"Pane {idx} does not exist")
         selected_panes.append(all_panes[idx])
 
-    # Validate that distribution is possible
     if args.dimension == "height":
-        # Check if all panes are in same row (same top coordinate)
-        unique_tops = {p["top"] for p in all_panes.values()}
-        if len(unique_tops) == 1:
-            print(
-                "Error: Cannot distribute height - all panes are in a single row",
-                file=sys.stderr,
-            )
-            return 1
-
-    elif args.dimension == "width":
-        # Check if all panes are in same column (same left coordinate)
-        unique_lefts = {p["left"] for p in all_panes.values()}
-        if len(unique_lefts) == 1:
-            print(
-                "Error: Cannot distribute width - all panes are in a single column",
-                file=sys.stderr,
-            )
-            return 1
+        if len({p["top"] for p in all_panes.values()}) == 1:
+            raise TmuxError("Cannot distribute height - all panes are in a single row")
+    elif len({p["left"] for p in all_panes.values()}) == 1:
+        raise TmuxError("Cannot distribute width - all panes are in a single column")
 
     commands = []
     flag = "-x" if args.dimension == "width" else "-y"
 
-    if args.fraction:
-        if "/" not in args.fraction:
-            print(f"Error: Invalid fraction format: {args.fraction}", file=sys.stderr)
-            return 1
-
-        num, denom = args.fraction.split("/")
-        target_size = int(window_size * int(num) / int(denom))
+    if fraction:
+        num, denom = fraction
+        window_size = available_size(args.dimension, selected_panes[0]["id"])
+        target_size = window_size * num // denom
 
         if args.dimension == "width":
             affected_panes = find_column_panes(all_panes, selected_panes)
@@ -218,12 +258,8 @@ def main():
                 file=sys.stderr,
             )
 
-        if args.dimension == "width":
-            limiting = max(affected_panes, key=lambda p: p["width"])
-            current_size = limiting["width"]
-        else:
-            limiting = max(affected_panes, key=lambda p: p["height"])
-            current_size = limiting["height"]
+        limiting = max(affected_panes, key=lambda p: p[args.dimension])
+        current_size = limiting[args.dimension]
 
         if args.verbose:
             print(
@@ -257,31 +293,30 @@ def main():
                         f"tmux resize-pane -t {pane['id']} {flag} {each_size}"
                     )
 
-    else:
-        dim_attr = args.dimension
-        total = sum(p[dim_attr] for p in selected_panes)
-        each_size = total // len(selected_panes)
+    elif len(selected_panes) > 1 and are_all_siblings(
+        all_panes, selected_panes, args.dimension
+    ):
+        # tmux spreads siblings itself, borders and remainder included.
+        commands.append(f"tmux select-layout -E -t {selected_panes[0]['id']}")
+
+    elif len(selected_panes) > 1:
+        total = sum(p[args.dimension] for p in selected_panes)
+        each_size, remainder = divmod(total, len(selected_panes))
 
         if args.verbose:
             print(
-                f"Redistributing {len(selected_panes)} panes: {total}px → {len(selected_panes)} × {each_size}px",
+                f"Redistributing {len(selected_panes)} panes: {total}px → {each_size}px (+1 on first {remainder})",
                 file=sys.stderr,
             )
 
-        for pane in selected_panes:
-            commands.append(f"tmux resize-pane -t {pane['id']} {flag} {each_size}")
+        for i, pane in enumerate(selected_panes):
+            size = each_size + (1 if i < remainder else 0)
+            commands.append(f"tmux resize-pane -t {pane['id']} {flag} {size}")
 
     if commands:
-        output = []
-        for i, cmd in enumerate(commands):
-            output.append(cmd)
-            if i < len(commands) - 1:
-                output.append("sleep 0.05")
-
-        print(" && ".join(output))
-    else:
-        if args.verbose:
-            print("No resize needed", file=sys.stderr)
+        print(" && sleep 0.05 && ".join(commands))
+    elif args.verbose:
+        print("No resize needed", file=sys.stderr)
 
     return 0
 
