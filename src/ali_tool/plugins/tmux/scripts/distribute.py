@@ -2,9 +2,16 @@
 """Distribute tmux panes evenly or by fraction with column/row awareness."""
 
 import argparse
+import os
 import subprocess
 import sys
 from collections import defaultdict
+
+
+def target_args():
+    # Under run-shell, tmux's "current" window is not the caller's; the binding exports TMUX_PANE.
+    pane = os.environ.get("TMUX_PANE")
+    return ["-t", pane] if pane else []
 
 
 def get_detailed_pane_info():
@@ -14,6 +21,7 @@ def get_detailed_pane_info():
             [
                 "tmux",
                 "list-panes",
+                *target_args(),
                 "-F",
                 "#{pane_index}:#{pane_id}:#{pane_width}:#{pane_height}:#{pane_left}:#{pane_top}",
             ],
@@ -135,7 +143,9 @@ def main():
     dimension_key = f"window_{args.dimension}"
     try:
         output = subprocess.check_output(
-            ["tmux", "display", "-p", f"#{{{dimension_key}}}"], timeout=1, text=True
+            ["tmux", "display", "-p", *target_args(), f"#{{{dimension_key}}}"],
+            timeout=1,
+            text=True,
         ).strip()
         window_size = int(output)
     except subprocess.CalledProcessError:

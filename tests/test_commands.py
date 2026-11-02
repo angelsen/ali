@@ -17,6 +17,11 @@ COMMANDS = {
     "FORK pop": f"{POPUP} {ORIGIN} {FORK}",
     "FORK": f"tmux split-window {ORIGIN} -v {FORK}",
     "TERMTAP": f"{POPUP} {ORIGIN} 'termtap companion --popup'",
+    "GO THIS": "tmux select-pane -t .",
+    "GO .CURRENT": "tmux select-pane -t .",
+    "KILL :THIS": "tmux kill-window -t :",
+    "JOIN THIS .2": "tmux join-pane -h -s . -t .2",
+    "SWAP .1 CURRENT": "tmux swap-pane -s .1 -t .",
 }
 
 
@@ -39,3 +44,18 @@ def test_selector_file_keeps_xargs_placeholder(router):
 def test_unknown_verb_suggests_closest(router):
     assert "Did you mean LAZYGIT?" in router.execute("LAZYGTI")
     assert "Did you mean" not in router.execute("QQQQQQ")
+
+
+def test_selector_lookup_ignores_case(router):
+    assert router.execute("ECHO BR?") == router.execute("ECHO br?")
+
+
+@pytest.mark.parametrize(
+    ("command", "message"),
+    [
+        ("ECHO bt?", "Error: Unknown selector: bt?. Did you mean br?"),
+        ("ECHO zzzzzz?", "Error: Unknown selector: zzzzzz?. Available: "),
+    ],
+)
+def test_unknown_selector_is_named(router, command, message):
+    assert router.execute(command).startswith(message)

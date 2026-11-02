@@ -76,6 +76,15 @@ class Router:
 
         command = self._find_command(state, plugin)
         if not command:
+            unknown = self._unknown_selector(state, selectors)
+            if unknown:
+                close = difflib.get_close_matches(unknown, selectors, n=1)
+                hint = (
+                    f"Did you mean {close[0]}?"
+                    if close
+                    else f"Available: {', '.join(sorted(selectors))}"
+                )
+                return f"Error: Unknown selector: {unknown}. {hint}"
             expectations = plugin.expectations.get(verb, [])
             if expectations:
                 parsed_exp = parse_expectations(expectations)
@@ -265,6 +274,20 @@ class Router:
                     return False
 
         return True
+
+    @staticmethod
+    def _unknown_selector(
+        state: dict[str, Any], selectors: dict[str, dict[str, str]]
+    ) -> str | None:
+        """Return a selector-shaped state value (`xx?`) that names no selector."""
+        known = {name.lower() for name in selectors}
+        for field, value in state.items():
+            if field.startswith("_") or field.endswith("_exec"):
+                continue
+            is_selector_shaped = isinstance(value, str) and value.endswith("?")
+            if is_selector_shaped and value.lower() not in known:
+                return value
+        return None
 
     def _find_command(self, state: dict[str, Any], plugin: Plugin) -> dict | None:
         """Find command template matching current state."""

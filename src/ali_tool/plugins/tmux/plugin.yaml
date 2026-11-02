@@ -81,6 +81,18 @@ expectations:
   PWD: []
 # Inference
 inference:
+  - when: {target: "^\\.?(THIS|CURRENT)$"}
+    transform: {target: "."}
+  - when: {target: "^:(THIS|CURRENT)$"}
+    transform: {target: ":"}
+  - when: {source: "^\\.?(THIS|CURRENT)$"}
+    transform: {source: "."}
+  - when: {source: "^:(THIS|CURRENT)$"}
+    transform: {source: ":"}
+  - when: {dest: "^\\.?(THIS|CURRENT)$"}
+    transform: {dest: "."}
+  - when: {dest: "^:(THIS|CURRENT)$"}
+    transform: {dest: ":"}
   - when: {verb: GO, target: "?"}
     transform: {target: ".?"}
   - when: {verb: KILL, target: "^\\.", object: null}

@@ -330,6 +330,7 @@ def expand_selectors(
     services: dict[str, str],
 ) -> dict[str, Any]:
     """Expand selectors by adding their exec commands to state."""
+    by_lower = {name.lower(): definition for name, definition in selectors.items()}
 
     for field_name, value in list(state.items()):
         if field_name.startswith("_") or field_name.endswith("_exec"):
@@ -338,8 +339,8 @@ def expand_selectors(
         if not isinstance(value, str):
             continue
 
-        if value in selectors:
-            selector_def = selectors[value]
+        if value.lower() in by_lower:
+            selector_def = by_lower[value.lower()]
             exec_template = selector_def.get("exec", "")
             # Resolve any service references in the selector's exec
             if exec_template and "{" in exec_template:
