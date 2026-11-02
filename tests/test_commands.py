@@ -16,6 +16,7 @@ COMMANDS = {
     "CREATE WINDOW": f"tmux new-window {ORIGIN}",
     "FORK pop": f"{POPUP} {ORIGIN} {FORK}",
     "FORK": f"tmux split-window {ORIGIN} -v {FORK}",
+    "TERMTAP": f"{POPUP} {ORIGIN} 'termtap companion --popup'",
 }
 
 
@@ -27,3 +28,14 @@ def test_printed_command(router, command, expected):
     assert "ORIGIN_PANE= " not in printed and "ORIGIN_WINDOW= " not in printed
     assert "ORIGIN_SESSION= " not in printed and not printed.endswith("=")
     assert subprocess.run(["sh", "-n", "-c", printed], check=False).returncode == 0
+
+
+def test_selector_file_keeps_xargs_placeholder(router):
+    printed = router.execute("EDIT br?")
+    assert printed == f"broot | xargs -I {{}} tmux split-window {ORIGIN} -h 'micro {{}}'"
+    assert subprocess.run(["sh", "-n", "-c", printed], check=False).returncode == 0
+
+
+def test_unknown_verb_suggests_closest(router):
+    assert "Did you mean LAZYGIT?" in router.execute("LAZYGTI")
+    assert "Did you mean" not in router.execute("QQQQQQ")

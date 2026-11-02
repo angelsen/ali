@@ -47,10 +47,6 @@ grammar:
     values: [PANE, WINDOW, SESSION]
     transform: upper
     description: "Tmux object types"
-  clause:
-    values: [AS, WITH, IN]
-    transform: upper
-    description: "Command modifiers"
   panes:
     pattern: "^[0-9]+$"
     description: "Pane indices (e.g., 012 for panes 0, 1, 2)"
@@ -73,8 +69,8 @@ expectations:
   KILL: ["object?", "target?"]
   SPLIT: ["target?", "direction?=down", "modifier?"]
   CREATE: [object, "direction?"]
-  WIDTH: [panes, "clause?", "fraction?"]
-  HEIGHT: [panes, "clause?", "fraction?"]
+  WIDTH: [panes, "fraction?"]
+  HEIGHT: [panes, "fraction?"]
   JOIN: [source, "dest?", "direction?=right"]
   SWAP: [source, "dest?"]
   COPY: [stream]
@@ -128,7 +124,7 @@ commands:
   - match: {verb: LAYOUT}
     exec: "{modal_popup} 'trelayout -t \"$ORIGIN_PANE\"'"
   - match: {verb: TERMTAP}
-    exec: "tmux display-popup -E -w 80% -h 60% 'termtap companion --popup'"
+    exec: "{modal_popup} 'termtap companion --popup'"
   - match: {verb: LAZYGIT}
     exec: "{modal_popup} 'lazygit'"
   - match: {verb: PWD}

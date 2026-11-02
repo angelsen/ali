@@ -34,13 +34,13 @@ expectations:
 # Commands
 commands:
   - match: {verb: [EDIT, ED], file: present, direction: pop}
-    exec: "{?file_exec:{file_exec} | xargs -I {} }{split_popup} 'micro{?file_exec: {}: {file}}'"
+    exec: "{?file_exec:{file_exec} | xargs -I {{{}}} }{split_popup} 'micro{?file_exec: {{{}}}: {file}}'"
   - match: {verb: [EDIT, ED], file: present}
-    exec: "{?file_exec:{file_exec} | xargs -I {} }{split} 'micro{?file_exec: {}: {file}}'"
+    exec: "{?file_exec:{file_exec} | xargs -I {{{}}} }{split} 'micro{?file_exec: {{{}}}: {file}}'"
   - match: {verb: VIEW, file: present, direction: pop}
-    exec: "{?file_exec:{file_exec} | xargs -I {} }{split_popup} 'micro -readonly{?file_exec: {}: {file}}'"
+    exec: "{?file_exec:{file_exec} | xargs -I {{{}}} }{split_popup} 'micro -readonly{?file_exec: {{{}}}: {file}}'"
   - match: {verb: VIEW, file: present}
-    exec: "{?file_exec:{file_exec} | xargs -I {} }{split} 'micro -readonly{?file_exec: {}: {file}}'"
+    exec: "{?file_exec:{file_exec} | xargs -I {{{}}} }{split} 'micro -readonly{?file_exec: {{{}}}: {file}}'"
 # Selectors
 selectors:
   ed?:

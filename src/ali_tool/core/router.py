@@ -1,5 +1,6 @@
 """Command Router - Parses commands and orchestrates resolution."""
 
+import difflib
 import re
 import shlex
 from typing import Any
@@ -50,8 +51,11 @@ class Router:
             self.last_state = {"verb": verb}
             available = list(self.registry.verb_index.keys())
             if available:
+                close = difflib.get_close_matches(verb, available, n=1)
+                hint = f" Did you mean {close[0]}?" if close else ""
                 return (
-                    f"Unknown verb: {verb}. Available: {', '.join(sorted(available))}"
+                    f"Unknown verb: {verb}.{hint} "
+                    f"Available: {', '.join(sorted(available))}"
                 )
             return f"Unknown verb: {verb}. No plugins loaded."
 
